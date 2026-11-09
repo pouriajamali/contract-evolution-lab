@@ -1,6 +1,6 @@
 # Runbook and review
 
-Expected full demo: all named cases PASS; independent SQL history ends at stage 2 with 50 unique effects, total 1554. The first failed Windows oracle (nullable unbackfilled column) and first Linux startup timeout were retained privately; neither was claimed as a pass. Final candidate receipts supersede uncommitted vertical slices.
+Expected full demo: 14 named cases PASS; independent SQL history ends at stage 2 with 50 unique effects, total 1554. A test-only guard independently observes v1's null incoming scaled field before the original fill trigger; a consistent-unit explicit scaled probe is rejected with named SQLSTATE P0001. Four real v1 writes must pass through that guard and be filled by the unchanged product trigger. The guard/audit are removed before migration resumes. Application, Core and contract bytes must stay unchanged at every milestone. The first failed Windows oracle (nullable unbackfilled column), first Linux startup timeout and prior local legacy-writer counterexamples were retained privately; none is claimed as a pass. Final candidate receipts supersede those slices.
 
 Investigate in this order: native executable --version and exact commit; package file manifest; pinned upstream archive hashes; sanitized host-error.json; service stdout/stderr; private history and SQL oracle. Never paste the private connection file or whole demo folder into an issue. A digest/signature verifies provenance, not production suitability.
 

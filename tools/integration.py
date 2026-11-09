@@ -22,7 +22,7 @@ def main():
     if os.name=='nt':hostargs=['wsl','-d','Ubuntu-24.04','--']+hostargs
     hostlog=(out/'host-console.log').open('wb');host=subprocess.Popen(hostargs,stdout=hostlog,stderr=subprocess.STDOUT)
     hostile=out/'unrelated-cwd';hostile.mkdir();(hostile/'appsettings.json').write_text('invalid-json-must-not-be-read')
-    children=[];logs=[];checks=[];history=[];expected={};sequence=0;config=None;environment=os.environ.copy();environment['DOTNET_PROCESSOR_COUNT']='2';start=time.monotonic()
+    children=[];logs=[];checks=[];history=[];expected={};sequence=0;config=None;guard_active=False;guard_proof=None;environment=os.environ.copy();environment['DOTNET_PROCESSOR_COUNT']='2';start=time.monotonic()
     def wait(path,seconds=90):
         end=time.monotonic()+seconds
         while time.monotonic()<end:
@@ -31,6 +31,19 @@ def main():
             time.sleep(.025)
         raise TimeoutError(path.name)
     def app(role,v):return apps/f'{role}-v{v}'/(f'{role}-v{v}'+('.exe' if os.name=='nt' else ''))
+    def binary_snapshot():
+        files={}
+        for role in ['producer','consumer']:
+            for version in [1,2]:
+                main=app(role,version);directory=main.parent
+                for name in [main.name,f'{role}-v{version}.dll','Core.dll',f'Contract.V{version}.dll']:
+                    file=directory/name
+                    if file.is_file():files[file.relative_to(apps).as_posix()]=hashlib.sha256(file.read_bytes()).hexdigest()
+                require(main.is_file() and (directory/f'{role}-v{version}.dll').is_file(),'Immutable apphost/managed entry required')
+                require((directory/f'Contract.V{version}.dll').is_file(),'Immutable contract assembly required')
+                if role=='consumer':require((directory/'Core.dll').is_file(),'Immutable consumer Core required')
+        return files
+    binary_identity=None
     def invoke(role,v,*args,codes=(0,)):
         r=subprocess.run([str(app(role,v)),*map(str,args)],cwd=app(role,v).parent,capture_output=True,text=True,env=environment,timeout=20)
         try:result=json.loads(r.stdout)
@@ -51,7 +64,9 @@ def main():
         require(state['total']==sum(expected.values()) and state['effects']==len(expected),'Independent SQL conservation')
         history.append({'independentSqlOracle':{'stage':state['stage'],'effects':len(rows),'total':state['total'],'backfilled':state['backfilled']}})
         return raw
-    def mark(name):checks.append(name);print('PASS '+name,flush=True)
+    def mark(name):
+        require(binary_snapshot()==binary_identity,'Application/core/contract bytes changed across migration stages')
+        checks.append(name);print('PASS '+name,flush=True)
     def backfill_all():
         for _ in range(10):
             status=invoke('consumer',2,'backfill','7')['status']
@@ -95,6 +110,7 @@ def main():
         if status=='APPLIED':expected[identity]=ticks
         return file,result
     try:
+        binary_identity=binary_snapshot()
         wait(hostdir/'ready.json');config=json.loads((hostdir/'connection.private.json').read_text());environment['EVOLUTION_LAB_DB']=config['connection']
         require(invoke('consumer',1,'init')['status']=='INITIALIZED_FRESH','Fresh schema')
         old,oldurl=server(1);new,newurl=server(2)
@@ -132,6 +148,9 @@ def main():
         require(invoke('consumer',2,'expand')['status']=='EXPAND_COMMITTED','Expand')
         require(invoke('consumer',2,'contract','ack-old-writers-stopped')['status']=='INVARIANT_NOT_READY','Incomplete backfill must stop')
         control('negative-unit-invariant');oracle();mark('expand-and-database-unit-invariant-fail-closed')
+        guard=control('install-legacy-input-guard');guard_active=True
+        require(guard['triggerNames']==['aa_test_legacy_input_guard','dual_write'],'Fixture guard must precede unchanged product fill trigger')
+        control('probe-legacy-input-guard');oracle()
         # Concurrent old and new writers each use immutable producer/consumer executables.
         work=[(v,url,'writer-'+str(v)+'-'+str(i),i+101) for v,url in [(1,oldurl),(2,newurl)] for i in range(4)]
         files=[(v,url,identity,ticks,encode(v,'legacy',identity,ticks)) for v,url,identity,ticks in work]
@@ -139,6 +158,11 @@ def main():
             results=list(pool.map(lambda item:resolve_new(item[0],item[1],item[4]),files))
         for item,result in zip(files,results):require(result['status'] in ['APPLIED','REPLAY'],'Concurrent writer');expected[item[2]]=item[3]
         oracle();mark('concurrent-old-new-writers-during-expand')
+        guard_proof=control('legacy-input-guard-evidence')['legacyInputGuard'];history.append({'legacyInputGuard':guard_proof})
+        require(guard_proof['originalFillTriggerPresent'] and guard_proof['rejectedIds']==['writer-1-guard-probe'],'Guard rejects nonnull input, real old writers must not supply scaled')
+        require([r['operation_id'] for r in guard_proof['observations']]==['writer-1-'+str(i) for i in range(4)],'Every actual v1 insert observed before fill')
+        require(all(r['incoming_scaled'] is None and r['amount_scaled']==r['amount_ticks']*1000 for r in guard_proof['observations']),'Old SQL supplies legacy only; original trigger supplies scaled')
+        control('remove-legacy-input-guard');guard_active=False;oracle();mark('legacy-writer-omits-new-column-before-original-trigger')
         require(invoke('consumer',2,'backfill','7')['status']=='BACKFILLED:7','Bounded first batch')
         partial=oracle();require(any(e.get('amount_scaled') is None for e in partial['effects']),'Actual partial backfill')
         # A new process resumes from durable row state; no untrusted high-water cursor.
@@ -173,11 +197,14 @@ def main():
         oracle();mark('irreversible-contract-old-binary-stops-without-effects')
         control('restart');require(send(2,newurl,replay_file)['status']=='REPLAY','Ordinary PG restart preserves identity')
         final=oracle();mark('ordinary-pg-restart-retains-effect-history')
-        receipt={'status':'PASS','clientOs':platform.system(),'caseCount':len(checks),'cases':checks,'effectCount':len(expected),'total':sum(expected.values()),'finalStage':final['state']['stage'],'normalUnknownResolutionAttempts':sum('normalUnknownResolution' in event for event in history),'durationSeconds':round(time.monotonic()-start,3)}
+        receipt={'status':'PASS','clientOs':platform.system(),'caseCount':len(checks),'cases':checks,'effectCount':len(expected),'total':sum(expected.values()),'finalStage':final['state']['stage'],'legacyInputGuard':guard_proof,'immutableApplicationFiles':binary_identity,'normalUnknownResolutionAttempts':sum('normalUnknownResolution' in event for event in history),'durationSeconds':round(time.monotonic()-start,3)}
         (out/'history.json').write_text(json.dumps(history,indent=2)+'\n');(out/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps(receipt))
     except Exception as error:
+        if guard_active:
+            try:guard_proof=control('legacy-input-guard-evidence')['legacyInputGuard'];history.append({'legacyInputGuardAtFailure':guard_proof})
+            except Exception:pass
         (out/'history.incomplete.json').write_text(json.dumps(history,indent=2)+'\n')
-        (out/'receipt.incomplete.json').write_text(json.dumps({'status':'INCOMPLETE_NOT_A_PASS','errorType':type(error).__name__,'passedCases':checks,'scope':'Preserved partial observations; no inferred outcome for unresolved identities'},indent=2)+'\n')
+        (out/'receipt.incomplete.json').write_text(json.dumps({'status':'INCOMPLETE_NOT_A_PASS','errorType':type(error).__name__,'passedCases':checks,'legacyInputGuard':guard_proof,'scope':'Preserved partial observations; no inferred outcome for unresolved identities'},indent=2)+'\n')
         raise
     finally:
         for child in children:

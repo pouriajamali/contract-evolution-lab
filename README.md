@@ -14,6 +14,7 @@ Local synthetic actions only. No exchange, orders, market/account connection, pr
 | Convert through old ProtoJSON | Binary roundtrip retains an unknown confirmation; JSON roundtrip loses it and the action is denied |
 | Lose an acknowledgement after commit | Kill the owned consumer, then resolve using the same identity and normalized intent |
 | Remove the legacy database column | Old binary returns SCHEMA_UNSUPPORTED; rollback is explicitly blocked |
+| Keep an old writer independent of the new column | Test-only pre-fill database guard observes null scaled input from v1 and the unchanged original trigger supplies the stored scaled value; app/core/contract hashes stay fixed across stages |
 
 ## Run the preview
 

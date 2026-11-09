@@ -9,12 +9,14 @@ Business identity is a 1..64 lowercase ASCII alphanumeric/hyphen operation_id. C
 | Stage | v1 writer | v2 writer | Stored amount | Rollback |
 | --- | --- | --- | --- | --- |
 | 0 legacy | accepts legacy semantics | normalizes then writes legacy | amount_ticks | no migration to undo |
-| 1 expanded | trigger fills new column for new effects | writes both representations | legacy rows may still have NULL scaled values | demonstrated rollback to 0 |
+| 1 expanded | INSERT names/supplies only legacy column; original trigger fills scaled | writes both representations | legacy rows may still have NULL scaled values | demonstrated rollback to 0 |
 | 2 contracted | explicit SCHEMA_UNSUPPORTED, including replay | writes new column | NOT NULL amount_scaled | ROLLBACK_BLOCKED |
 
 Every writer locks the singleton stage/state row FOR UPDATE before checking or writing. Migration takes the same lock: an in-flight write finishes before the stage moves, and a later old writer reads the new stage and stops. The demo actually stops the owned old server before contract and acknowledges this precondition; it also restarts an old binary afterward to verify rejection. This is not a production process registry or deployment controller.
 
 Expand adds a nullable column and a dual-write trigger that independently rejects inconsistent units. Backfill processes at most 32 rows per transaction (demo uses 7), updates a durable progress count with those rows and restarts by selecting remaining NULL rows. It uses no unsafe external high-water cursor. New old-version inserts are filled by the trigger. Contract refuses until all rows have valid matching units, then atomically removes the old column/trigger and advances stage to 2. Backfill cannot silently skip its invariant.
+
+The same v1/v2 apphost, managed entry, Core and contract bytes are checked at every demo milestone. Writer v1 at stages 0/1 supplies no scaled SQL column or parameter; writer v2 writes legacy at stage 0, both at stage 1, scaled only at stage 2. An expanded-stage test fixture installs a separate BEFORE INSERT guard ahead of the unchanged product fill trigger. For actual v1 writer IDs, already-nonnull scaled input raises a named SQLSTATE P0001 error; null input is recorded before the original trigger fills it. A deliberate consistent-unit nonnull probe must fail that guard, while all four real v1 inserts must show null incoming values and correctly filled stored values. The guard/audit are removed before backfill/rollback/contract and never alter the production-shape invariant or any shared database. This distinguishes legacy SQL omission from merely observing correct final numbers.
 
 Before contract, rollback drops the new representation and retains all normalized legacy amounts/identities/receipts. After contract, data/schema rollback is explicitly unsupported and blocked; rebuilding old binaries or parsing messages cannot recover the removed schema. External database restore/rollback, multiple sites, deployment orchestration, and arbitrary schema changes are outside this lab.
 

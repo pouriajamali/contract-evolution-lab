@@ -49,13 +49,20 @@ public sealed class Store
         if (count >= 4096) return new("CAPACITY_REJECTED",intent.Id);
         var total = Convert.ToInt64(await Scalar(db,tx,"SELECT total FROM evolution_v1.state WHERE id",token),CultureInfo.InvariantCulture);
         var next = checked(total+intent.Ticks); var result = next.ToString(CultureInfo.InvariantCulture);
-        var insert = stage switch {
-            0 => "INSERT INTO evolution_v1.effects(operation_id,request_hash,amount_ticks,receipt) VALUES(@id,@hash,@ticks,@receipt)",
-            1 => "INSERT INTO evolution_v1.effects(operation_id,request_hash,amount_ticks,amount_scaled,receipt) VALUES(@id,@hash,@ticks,@scaled,@receipt)",
-            2 => "INSERT INTO evolution_v1.effects(operation_id,request_hash,amount_scaled,receipt) VALUES(@id,@hash,@scaled,@receipt)",
-            _ => throw new InvalidOperationException("STAGE")
-        };
-        await Scalar(db,tx,insert,token,("id",intent.Id),("hash",intent.Digest),("ticks",intent.Ticks),("scaled",checked(intent.Ticks*1000)),("receipt",result));
+        if (stage == 0 || version == 1)
+        {
+            // A v1 writer never names or supplies the expanded column. The database
+            // compatibility trigger alone fills it during stage 1.
+            await Scalar(db,tx,"INSERT INTO evolution_v1.effects(operation_id,request_hash,amount_ticks,receipt) VALUES(@id,@hash,@ticks,@receipt)",token,
+                ("id",intent.Id),("hash",intent.Digest),("ticks",intent.Ticks),("receipt",result));
+        }
+        else if (stage == 1)
+            await Scalar(db,tx,"INSERT INTO evolution_v1.effects(operation_id,request_hash,amount_ticks,amount_scaled,receipt) VALUES(@id,@hash,@ticks,@scaled,@receipt)",token,
+                ("id",intent.Id),("hash",intent.Digest),("ticks",intent.Ticks),("scaled",checked(intent.Ticks*1000)),("receipt",result));
+        else if (stage == 2)
+            await Scalar(db,tx,"INSERT INTO evolution_v1.effects(operation_id,request_hash,amount_scaled,receipt) VALUES(@id,@hash,@scaled,@receipt)",token,
+                ("id",intent.Id),("hash",intent.Digest),("scaled",checked(intent.Ticks*1000)),("receipt",result));
+        else throw new InvalidOperationException("STAGE");
         await Scalar(db,tx,"UPDATE evolution_v1.state SET total=@total,effects=effects+1 WHERE id",token,("total",next));
         await Pause("before-commit",token); await tx.CommitAsync(token); await Pause("after-commit",token);
         return new("APPLIED",intent.Id,result);
