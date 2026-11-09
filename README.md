@@ -62,7 +62,7 @@ python tools/fetch_buf.py --out artifacts/buf
 python tools/check_contracts.py --buf artifacts/buf/buf-Linux-x86_64 --out artifacts/contracts
 ```
 
-Buf 1.75.0 is a separately downloaded checksum-pinned tool, not bundled. Grpc.Tools 2.85.0 generates code against Google.Protobuf 3.36.2, matching the supported gRPC 2.85.0 package relationship. Compiler/runtime pairing, static FILE compatibility, ProtoJSON preservation and application semantics are separate checks. Test executables and build tools are not runtime components in the package SBOM.
+Buf 1.75.0 is a separately downloaded checksum-pinned tool, not bundled. Grpc.Tools 2.85.0 actually contains protoc 35.1; it generates C# for the newer Google.Protobuf 3.36.2 runtime under the supported older-generator/newer-runtime relationship. Both native compiler/plugin hashes are frozen and the actual compiler version is executed during packaging. Buf's version and built-in parser are separate from this C# generation toolchain. Compiler/runtime pairing, static FILE compatibility, ProtoJSON preservation and application semantics are separate checks. Test executables and build tools are not runtime components in the package SBOM.
 
 ## Architecture and limits
 

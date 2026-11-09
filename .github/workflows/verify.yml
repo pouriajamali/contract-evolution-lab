@@ -96,6 +96,7 @@ jobs:
             artifacts/notices-tests/receipt.json
             artifacts/verifier-tests/receipt.json
             artifacts/build/archive.json
+            artifacts/build/toolchain-check.json
             artifacts/build/contract-checks/receipt.json
             artifacts/integration/receipt.json
           if-no-files-found: error

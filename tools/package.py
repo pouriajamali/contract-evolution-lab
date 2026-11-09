@@ -25,6 +25,7 @@ def main():
     work=Path(a.work).resolve();work.mkdir(parents=True,exist_ok=False);out=Path(a.out).resolve();out.mkdir(parents=True,exist_ok=True)
     version=ET.parse(ROOT/'Directory.Build.props').findtext('.//Version');name='contract-evolution-lab-v'+version+'-'+a.rid;package=work/name;package.mkdir()
     with (work/'locked-restore.log').open('wb') as log:subprocess.run([a.dotnet,'restore','ContractEvolution.slnx','--locked-mode'],cwd=ROOT,check=True,stdout=log,stderr=subprocess.STDOUT,timeout=240)
+    subprocess.run(['python' if os.name=='nt' else 'python3',str(ROOT/'tools/check_toolchain.py'),'--out',str(work/'toolchain-check.json')],check=True,cwd=ROOT,capture_output=True,timeout=30)
     subprocess.run(['python' if os.name=='nt' else 'python3',str(ROOT/'tools/build_apps.py'),'--dotnet',a.dotnet,'--rid',a.rid,'--commit',a.commit,'--out',str(package/'apps')],check=True,cwd=ROOT,timeout=900,capture_output=True)
     for log in (package/'apps').glob('*-build.log'):shutil.copy2(log,work/log.name);log.unlink()
     subprocess.run(['python' if os.name=='nt' else 'python3',str(ROOT/'tools/check_contracts.py'),'--buf',a.buf,'--out',str(work/'contract-checks')],check=True,cwd=ROOT,capture_output=True,timeout=180)

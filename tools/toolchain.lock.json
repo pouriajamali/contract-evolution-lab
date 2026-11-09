@@ -1,0 +1,30 @@
+{
+  "grpcTools": "2.85.0",
+  "protocVersion": "libprotoc 35.1",
+  "googleProtobufRuntime": "3.36.2",
+  "compatibility": "Older C# generator with newer same-major runtime; never new generator with older runtime. Buf parser/version is separate.",
+  "nugetContentHash": "JpACpJuD56v9MBlgJEakwBLbbDifYwE3fpktbsKMPOI3yvs/VFFQVGnmWatu6mgZSNo7gzFe+TDmda9SOKg+NQ==",
+  "rawSignedNupkgSha512": "da32a6d72c75cd7937ed78ebd18e654258d6d0ca26328663c368f669f3a60fcdd6199744e231495962957ccd65769ebb1b1a19f9d7804ef2988696c9056369fa",
+  "nativeTools": {
+    "win-x64": [
+      {
+        "path": "tools/windows_x64/protoc.exe",
+        "sha256": "0d477f3417e83f900c991a1d3e89457efbdd18ddd4ce7027bc8fa7533b67878e"
+      },
+      {
+        "path": "tools/windows_x64/grpc_csharp_plugin.exe",
+        "sha256": "5b0a0c8c617f30705a19d5ae62ce7a560b5ac3ed9a78bf3efbc7839a9e7fa6f6"
+      }
+    ],
+    "linux-x64": [
+      {
+        "path": "tools/linux_x64/protoc",
+        "sha256": "d4c92fddd3321a5034879345c4a091303a0cb3c2e284323513025959607c8590"
+      },
+      {
+        "path": "tools/linux_x64/grpc_csharp_plugin",
+        "sha256": "63300b2196fb89fe19a6f251a91089a8d0a907f78b22018b17ca959cc42567c2"
+      }
+    ]
+  }
+}
