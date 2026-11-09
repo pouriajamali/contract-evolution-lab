@@ -145,4 +145,4 @@ jobs:
           ACTUAL_TAG: ${{ github.ref_name }}
         run: |
           test "$ACTUAL_TAG" = "$RELEASE_TAG"
-          gh release create "$RELEASE_TAG" artifacts/release/* --verify-tag --prerelease --title "$RELEASE_TAG â€” Contract Evolution & Safe Rollout Lab" --notes-file docs/RELEASE.md
+          gh release create "$RELEASE_TAG" artifacts/release/* --verify-tag --prerelease --title "$RELEASE_TAG - Contract Evolution & Safe Rollout Lab" --notes-file docs/RELEASE.md

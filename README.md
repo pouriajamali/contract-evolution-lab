@@ -8,16 +8,16 @@ Local synthetic actions only. No exchange, orders, market/account connection, pr
 
 | Decision | Executable evidence |
 | --- | --- |
-| Add a field without breaking old binaries | Actual v1/v2 producers Ã— v1/v2 gRPC consumers: all four combinations |
+| Add a field without breaking old binaries | Actual v1/v2 producers by v1/v2 gRPC consumers: all four combinations |
 | Change an existing wire type | Pinned Buf FILE check rejects the negative fixture |
 | Reinterpret amount units | Old consumer denies new version/capability/unit; new consumer requires explicit confirmation |
 | Convert through old ProtoJSON | Binary roundtrip retains an unknown confirmation; JSON roundtrip loses it and the action is denied |
 | Lose an acknowledgement after commit | Kill the owned consumer, then resolve using the same identity and normalized intent |
 | Remove the legacy database column | Old binary returns SCHEMA_UNSUPPORTED; rollback is explicitly blocked |
 
-## Run the local candidate
+## Run the preview
 
-Preview version: `0.1.0-preview.1`. This candidate is awaiting final coordinated publication review. No release/download is claimed yet. Native public-build CI and actual public downloads are additional release gates.
+Preview version: `0.1.0-preview.1`. Use the [release channel](https://github.com/pouriajamali/contract-evolution-lab/releases) for published Windows x64, Linux x64 and source archives, checksums and signatures. Verify downloaded bytes with [PROVENANCE.md](PROVENANCE.md) before executing them. Local builds and CI artifacts are separate from published releases.
 
 The prepared Windows/Linux self-contained package has `apps/producer-v1`, `apps/producer-v2`, `apps/consumer-v1`, `apps/consumer-v2`, tools, descriptors, licenses and a source manifest. Each executable has offline `--help` and `--version`; no SDK is required to run it.
 
