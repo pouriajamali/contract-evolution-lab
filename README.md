@@ -1,0 +1,88 @@
+# Contract Evolution & Safe Rollout Lab
+
+Four immutable C#/.NET executables make an old/new rollout observable. Successful Protobuf parsing does not authorize an action. Explicit semantic version, capability, unit and field presence decide acceptance; a durable business identity keeps retries from creating another effect.
+
+Local synthetic actions only. No exchange, orders, market/account connection, production rollout or universal zero-downtime claim.
+
+## Start with the counterexamples
+
+| Decision | Executable evidence |
+| --- | --- |
+| Add a field without breaking old binaries | Actual v1/v2 producers Ã— v1/v2 gRPC consumers: all four combinations |
+| Change an existing wire type | Pinned Buf FILE check rejects the negative fixture |
+| Reinterpret amount units | Old consumer denies new version/capability/unit; new consumer requires explicit confirmation |
+| Convert through old ProtoJSON | Binary roundtrip retains an unknown confirmation; JSON roundtrip loses it and the action is denied |
+| Lose an acknowledgement after commit | Kill the owned consumer, then resolve using the same identity and normalized intent |
+| Remove the legacy database column | Old binary returns SCHEMA_UNSUPPORTED; rollback is explicitly blocked |
+
+## Run the local candidate
+
+Preview version: `0.1.0-preview.1`. This candidate is awaiting final coordinated publication review. No release/download is claimed yet. Native public-build CI and actual public downloads are additional release gates.
+
+The prepared Windows/Linux self-contained package has `apps/producer-v1`, `apps/producer-v2`, `apps/consumer-v1`, `apps/consumer-v2`, tools, descriptors, licenses and a source manifest. Each executable has offline `--help` and `--version`; no SDK is required to run it.
+
+From the package root on Windows PowerShell:
+
+```powershell
+.\apps\producer-v1\producer-v1.exe --help
+python tools/fetch_services.py --out artifacts/upstream
+if ($LASTEXITCODE -ne 0) { throw 'Fixture fetch failed' }
+$linuxHere = (wsl -d Ubuntu-24.04 -- wslpath -a (Get-Location).Path).Trim()
+if ($LASTEXITCODE -ne 0) { throw 'Existing Ubuntu WSL required' }
+wsl -d Ubuntu-24.04 -- python3 "$linuxHere/tools/prepare_linux.py" --archives "$linuxHere/artifacts/upstream" --out "$linuxHere/artifacts/services"
+if ($LASTEXITCODE -ne 0) { throw 'Fixture preparation failed' }
+python tools/integration.py --apps apps --fixtures artifacts/services --out artifacts/demo
+if ($LASTEXITCODE -ne 0) { throw 'Demo failed; retain evidence' }
+Get-Content artifacts/demo/receipt.json
+```
+
+Native Linux, from the package root:
+
+```sh
+python3 tools/fetch_services.py --out artifacts/upstream &&
+python3 tools/prepare_linux.py --archives artifacts/upstream --out artifacts/services &&
+python3 tools/integration.py --apps apps --fixtures artifacts/services --out artifacts/demo &&
+cat artifacts/demo/receipt.json
+```
+
+Prerequisites: Python 3.12+, existing Ubuntu 24.04 x64 (Windows uses an existing Ubuntu-24.04 WSL distribution), OpenSSH for provenance verification, and internet for five pinned PostgreSQL/support archives. They are extracted into your chosen directory, never installed as system services. No Docker, account, paid cloud or Buf registry is required. Use new output paths: existing candidate/demo evidence is not overwritten. The profile sets `DOTNET_PROCESSOR_COUNT=2` only for its children; it changes no host CPU, timer, security or power settings.
+
+Do not upload the demo directory: `connection.private.json` contains a generated temporary lab-only password. The supervisor owns its fresh PostgreSQL cluster and stops it at the end; scratch/logs remain private for inspection.
+
+## Source and static contract checks
+
+Build with exact SDK 10.0.403 / .NET runtime 10.0.14 / C# 14:
+
+```sh
+dotnet restore ContractEvolution.slnx --locked-mode
+dotnet build ContractEvolution.slnx -c Release --no-restore -m:1
+dotnet run --project tests/Core.Tests -c Release --no-build -- -result-xml artifacts/unit.xml
+python tools/fetch_buf.py --out artifacts/buf
+# Windows binary: artifacts/buf/buf-Windows-x86_64.exe
+python tools/check_contracts.py --buf artifacts/buf/buf-Linux-x86_64 --out artifacts/contracts
+```
+
+Buf 1.75.0 is a separately downloaded checksum-pinned tool, not bundled. Grpc.Tools 2.85.0 generates code against Google.Protobuf 3.36.2, matching the supported gRPC 2.85.0 package relationship. Compiler/runtime pairing, static FILE compatibility, ProtoJSON preservation and application semantics are separate checks. Test executables and build tools are not runtime components in the package SBOM.
+
+## Architecture and limits
+
+```mermaid
+flowchart LR
+  P1[Producer v1] --> G[Explicit semantic contract]
+  P2[Producer v2] --> G
+  G --> C1[Consumer v1]
+  G --> C2[Consumer v2]
+  C1 --> S[One PostgreSQL transaction]
+  C2 --> S
+  S --> I[Unique operation identity / digest / stored result]
+  S --> M[Expand / bounded backfill / contract]
+  O[Independent Python + SQL history oracle] --> I
+```
+
+The database row lock serializes this small example. A request has at most 16 KiB of Protobuf, eight active service slots, eight streams per connection and sixteen connections. One schema permits up to 4,096 committed effects, each 1..1,000,000 integer ticks. New milli-tick inputs must be exactly divisible by 1,000. This demonstrates safety under declared bounds, not throughput or availability.
+
+`APPLIED` means a committed effect. `REPLAY` returns its original stored result. `CONFLICT` rejects identity reuse with a different normalized intent. `UNKNOWN` means a commit might have happened; resolve with the same identity and canonical request. A fence, parser success or capability enum is not caller authentication.
+
+See [contract and migration stages](docs/CONTRACT.md), [decisions](docs/ADR.md), [failure/runbook](docs/RUNBOOK.md), [release evidence](docs/RELEASE.md), [notices](NOTICE.md) and [provenance](PROVENANCE.md).
+
+Original code: MIT. Fresh synthetic implementation; private/shared assets and existing career materials are excluded.

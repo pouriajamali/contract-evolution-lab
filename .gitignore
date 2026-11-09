@@ -1,0 +1,6 @@
+**/bin/
+**/obj/
+artifacts/
+*.private.json
+__pycache__/
+*.pyc

@@ -1,0 +1,188 @@
+{
+  "components": [
+    {
+      "id": "Google.Protobuf",
+      "version": "3.36.2",
+      "license": "BSD-3-Clause",
+      "copyright": "Copyright 2015, Google Inc.",
+      "nugetContentHash": "Ci1q1iJg74qAE5riTA2FbMS0wPbpruPQI/JQ9DrAsRo2VsSxgt1e/pmxGxgrci+pXJEgrSYg2vPl8rrStZkclQ==",
+      "rawSignedNupkgSha512Base64": "EmqX4khA/D63NGBn4GYxc6wJjrCeJqx6dbk6rFBudIR987jsq5r1YGRWRrLwyy7qDu4y1/5To/pdDbWwEgekpA==",
+      "repositoryCommit": "2c74169b34066ceb8ddb6b882fcb3fb32d737a55",
+      "licenseSource": {
+        "kind": "vendor",
+        "file": "protobuf-3.36.2-LICENSE.txt",
+        "sha256": "6e5e117324afd944dcf67f36cf329843bc1a92229a8cd9bb573d7a83130fea7d",
+        "url": "https://raw.githubusercontent.com/protocolbuffers/protobuf/2c74169b34066ceb8ddb6b882fcb3fb32d737a55/LICENSE"
+      }
+    },
+    {
+      "id": "Grpc.AspNetCore.Server",
+      "version": "2.85.0",
+      "license": "Apache-2.0",
+      "copyright": "Copyright 2019 The gRPC Authors",
+      "nugetContentHash": "0ECGrMKizFFYCqgHP7SMcOmC0z3eCIRekExrgp9rPj6Lner+0ZyCTjiArJ6h5vfBV7W13D1ypPY2uwyTkBbnMg==",
+      "rawSignedNupkgSha512Base64": "tLFe+3MONhuqJ+LaPWntgWaeH4mlYoJ2oi2+SEEGqz53ki6IT8LD5awgde9Mm86xWdllt6Pgmkxr+C/HJzaiTA==",
+      "repositoryCommit": "a7767e28a2c2f4e89a17e9efb95f75e8a82637d0",
+      "licenseSource": {
+        "kind": "vendor",
+        "file": "grpc-dotnet-2.85.0-LICENSE.txt",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "url": "https://raw.githubusercontent.com/grpc/grpc-dotnet/a7767e28a2c2f4e89a17e9efb95f75e8a82637d0/LICENSE"
+      }
+    },
+    {
+      "id": "Grpc.Core.Api",
+      "version": "2.85.0",
+      "license": "Apache-2.0",
+      "copyright": "Copyright 2019 The gRPC Authors",
+      "nugetContentHash": "cpYu/nw/QhwHcRZMJbYD8lEllKrdwYMiDS4U3oH61nhYPUMNkcCcef4ulv11svHvTBThYV+ju332N9bCrfe7cQ==",
+      "rawSignedNupkgSha512Base64": "cST3EWMGNmsEqHFPIRwSrhgd1B3bEvUlWss8IpjcjqQV1I8oN6fGZj75KdqFkuU0zdv8RZWDBaA9A8yYIN3KGQ==",
+      "repositoryCommit": "a7767e28a2c2f4e89a17e9efb95f75e8a82637d0",
+      "licenseSource": {
+        "kind": "vendor",
+        "file": "grpc-dotnet-2.85.0-LICENSE.txt",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "url": "https://raw.githubusercontent.com/grpc/grpc-dotnet/a7767e28a2c2f4e89a17e9efb95f75e8a82637d0/LICENSE"
+      }
+    },
+    {
+      "id": "Grpc.Net.Client",
+      "version": "2.85.0",
+      "license": "Apache-2.0",
+      "copyright": "Copyright 2019 The gRPC Authors",
+      "nugetContentHash": "BPMA5mb96ihVQfXTuIUpC1aie2I0ODBD6QCc0UXYS5zQMK6sJW5yck8NZ2ffvGHfOanWyn2Yg0tJbYY3nV+zIw==",
+      "rawSignedNupkgSha512Base64": "zd7xqwdlzYTC0WBM/Z6v4nTsKJue3pMfJm0gI142qWfTsU92hPfcHxHFmefnhwV4dwx3RwLO1sBqUziE5kZ6FA==",
+      "repositoryCommit": "a7767e28a2c2f4e89a17e9efb95f75e8a82637d0",
+      "licenseSource": {
+        "kind": "vendor",
+        "file": "grpc-dotnet-2.85.0-LICENSE.txt",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "url": "https://raw.githubusercontent.com/grpc/grpc-dotnet/a7767e28a2c2f4e89a17e9efb95f75e8a82637d0/LICENSE"
+      }
+    },
+    {
+      "id": "Grpc.Net.Common",
+      "version": "2.85.0",
+      "license": "Apache-2.0",
+      "copyright": "Copyright 2019 The gRPC Authors",
+      "nugetContentHash": "e+RczhQVHb5MacI1oMTLMK6InZLH22POZcE4gsy5SnolsElLaqhSwEhqm+cF0m4Q1JGmlhjf1nbnKh7sBbjJVg==",
+      "rawSignedNupkgSha512Base64": "a8enZ9ir46urJhoy7MDuGe6bfUlEnP/1lEtkWvPBq6JPq/Rrg3w7uExC89qGpaZ9sU24jefUzUQTAk7qmUqypQ==",
+      "repositoryCommit": "a7767e28a2c2f4e89a17e9efb95f75e8a82637d0",
+      "licenseSource": {
+        "kind": "vendor",
+        "file": "grpc-dotnet-2.85.0-LICENSE.txt",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "url": "https://raw.githubusercontent.com/grpc/grpc-dotnet/a7767e28a2c2f4e89a17e9efb95f75e8a82637d0/LICENSE"
+      }
+    },
+    {
+      "id": "Microsoft.AspNetCore.App.Runtime.linux-x64",
+      "version": "10.0.14",
+      "license": "MIT",
+      "copyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "nugetContentHash": "u6ELO72wDnSC8TTp3x+jJW/PnXiPsUQkqFC9cGrdl9bbKB5z5p27Y4hrpYt8VrJjkFjAzlw6jINh7ebOdCGyrQ==",
+      "rawSignedNupkgSha512Base64": "Cp+0XHjY+V7Ac2boAkKymKHAAvmpitw231tj4LufSuSlKTeMTRBQvjkKXR1ahkY/x+eCJQu3TDIGNmOgElkU0A==",
+      "repositoryCommit": "0427b9abbead3fa64c6655eb4290c537397131fa",
+      "licenseSource": {
+        "kind": "package",
+        "file": "LICENSE.txt",
+        "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310",
+        "url": "https://api.nuget.org/v3-flatcontainer/microsoft.aspnetcore.app.runtime.linux-x64/10.0.14/microsoft.aspnetcore.app.runtime.linux-x64.10.0.14.nupkg"
+      }
+    },
+    {
+      "id": "Microsoft.AspNetCore.App.Runtime.win-x64",
+      "version": "10.0.14",
+      "license": "MIT",
+      "copyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "nugetContentHash": "aybWX2VpYNS3XMl8PgZjIpzzbsWyrs+ugjKnK/bMwSGqqlpZbWALF6f+keKqp5wsg3SoNunaFi2hH9Ql91mePA==",
+      "rawSignedNupkgSha512Base64": "1k8096BmENepiqExfgA3ndME94v7RqMqTqLrNMyN+FpqD7WD6jKL9tYrYWi4WKNCAgvRMFVlAidzA3s/FDmIQg==",
+      "repositoryCommit": "0427b9abbead3fa64c6655eb4290c537397131fa",
+      "licenseSource": {
+        "kind": "package",
+        "file": "LICENSE.txt",
+        "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b",
+        "url": "https://api.nuget.org/v3-flatcontainer/microsoft.aspnetcore.app.runtime.win-x64/10.0.14/microsoft.aspnetcore.app.runtime.win-x64.10.0.14.nupkg"
+      }
+    },
+    {
+      "id": "Microsoft.Extensions.DependencyInjection.Abstractions",
+      "version": "10.0.0",
+      "license": "MIT",
+      "copyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "nugetContentHash": "L3AdmZ1WOK4XXT5YFPEwyt0ep6l8lGIPs7F5OOBZc77Zqeo01Of7XXICy47628sdVl0v/owxYJTe86DTgFwKCA==",
+      "rawSignedNupkgSha512Base64": "R1JUmDhx81zXARj7/3QwSexiO9lNE2PBPXyK47sblSGIOl4Jd60iLY8wtmJ/NzhpXtPBiSOTMn2KFYuf7QaRIw==",
+      "repositoryCommit": "b0f34d51fccc69fd334253924abd8d6853fad7aa",
+      "licenseSource": {
+        "kind": "vendor",
+        "file": "dotnet-10.0.0-LICENSE.txt",
+        "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310",
+        "url": "https://raw.githubusercontent.com/dotnet/dotnet/b0f34d51fccc69fd334253924abd8d6853fad7aa/src/runtime/LICENSE.TXT"
+      }
+    },
+    {
+      "id": "Microsoft.Extensions.Logging.Abstractions",
+      "version": "10.0.0",
+      "license": "MIT",
+      "copyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "nugetContentHash": "FU/IfjDfwaMuKr414SSQNTIti/69bHEMb+QKrskRb26oVqpx3lNFXMjs/RC9ZUuhBhcwDM2BwOgoMw+PZ+beqQ==",
+      "rawSignedNupkgSha512Base64": "CElGLz6i7loG2KuKixPwXzz0Zt5m67xqCpysS+/JHOsYCuA8QgiasMp6Jsp/5bTtGo9z4jXhMI2Zl8lSnDad0Q==",
+      "repositoryCommit": "b0f34d51fccc69fd334253924abd8d6853fad7aa",
+      "licenseSource": {
+        "kind": "vendor",
+        "file": "dotnet-10.0.0-LICENSE.txt",
+        "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310",
+        "url": "https://raw.githubusercontent.com/dotnet/dotnet/b0f34d51fccc69fd334253924abd8d6853fad7aa/src/runtime/LICENSE.TXT"
+      }
+    },
+    {
+      "id": "Microsoft.NETCore.App.Runtime.linux-x64",
+      "version": "10.0.14",
+      "license": "MIT",
+      "copyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "nugetContentHash": "D1GLoCJT9uVa91+pIx5i0HGFcko4g/+L6T2/0DnjvFc8Ld0qFHIUpw7u8qdcDOOQhPUqeb3QQMA6KyiaVnqmTQ==",
+      "rawSignedNupkgSha512Base64": "IfDwQKE3gcK9u7iU7C/bOaqLNfoRf6zvXzGLHsJAbsC7Shwn5ztRCRWjD1mKRk5XUrPO9VWSC1+q8oimXRDlsg==",
+      "repositoryCommit": "0427b9abbead3fa64c6655eb4290c537397131fa",
+      "licenseSource": {
+        "kind": "package",
+        "file": "LICENSE.TXT",
+        "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310",
+        "url": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.app.runtime.linux-x64/10.0.14/microsoft.netcore.app.runtime.linux-x64.10.0.14.nupkg"
+      }
+    },
+    {
+      "id": "Microsoft.NETCore.App.Runtime.win-x64",
+      "version": "10.0.14",
+      "license": "MIT",
+      "copyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "nugetContentHash": "Py+9fO4oGQwPrM2SDTOCZP1CburyfXradGLj49WFXFA1/awcgTOtY9Ao01P2mYTyEMY32W2WmQyftR3KlwJFfA==",
+      "rawSignedNupkgSha512Base64": "mLWGagTP5n7nMfJQI2XpXRYgvPcnyYvAc8ZiDfum8ShM0UcrPDyfW4Lqo45UtlCHCucERUHQuMTI6ybVweCN9A==",
+      "repositoryCommit": "0427b9abbead3fa64c6655eb4290c537397131fa",
+      "licenseSource": {
+        "kind": "package",
+        "file": "LICENSE.TXT",
+        "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b",
+        "url": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.app.runtime.win-x64/10.0.14/microsoft.netcore.app.runtime.win-x64.10.0.14.nupkg"
+      }
+    },
+    {
+      "id": "Npgsql",
+      "version": "10.0.3",
+      "license": "PostgreSQL",
+      "copyright": "Copyright 2025 \u00a9 The Npgsql Development Team",
+      "nugetContentHash": "7nb5YzXuvWWJxB0J8DiyL3we+X4FOctZrt0fIBnucOIaIevFEEwGQVZKtiu9olXdlNAK1eNgqSral6r/jlhI4w==",
+      "rawSignedNupkgSha512Base64": "9wZYlR6r1uLGnAxBuUPOCmgbS6SDtVKyGkZ0tDGPaBHYbbdEDEajD0VErq+W/dn3gHfJ3WvOdZaNNNybnFCupA==",
+      "repositoryCommit": "d3768398c17877b3a916c3c4d87e8e11698991fc",
+      "licenseSource": {
+        "kind": "vendor",
+        "file": "Npgsql-10.0.3-LICENSE.txt",
+        "sha256": "2e1d9cc6ed4eb7fe6fa82091846c06b4f58571a2c3b54777db6baeca10dd2d74",
+        "url": "https://raw.githubusercontent.com/npgsql/npgsql/d3768398c17877b3a916c3c4d87e8e11698991fc/LICENSE"
+      }
+    }
+  ],
+  "excludedBuildTools": [
+    "Grpc.Tools/2.85.0"
+  ],
+  "policy": "Exact shipped deps/runtime graph, verified full upstream license, original metadata copyright; build tools/tests/externally fetched services not shipped."
+}

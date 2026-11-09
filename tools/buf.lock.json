@@ -1,0 +1,19 @@
+{
+  "version": "1.75.0",
+  "bundled": false,
+  "license": "Apache-2.0",
+  "assets": [
+    {
+      "name": "buf-Linux-x86_64",
+      "url": "https://github.com/bufbuild/buf/releases/download/v1.75.0/buf-Linux-x86_64",
+      "bytes": 46764192,
+      "sha256": "fad1e38d6909bbb583a4da81d8c02a01046e2cd663bde7e337dd24277393764b"
+    },
+    {
+      "name": "buf-Windows-x86_64.exe",
+      "url": "https://github.com/bufbuild/buf/releases/download/v1.75.0/buf-Windows-x86_64.exe",
+      "bytes": 47835648,
+      "sha256": "de35b288e7962ac72aefee5048aff80551a4f0e6ac865a21f838693461ac8b8d"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+syntax = "proto3";
+package evolution.v1;
+option csharp_namespace = "Evolution.Wire";
+enum Capability {
+  CAPABILITY_UNSPECIFIED = 0;
+  CAPABILITY_BASIC = 1;
+}
+enum Unit {
+  UNIT_UNSPECIFIED = 0;
+  UNIT_TICKS = 1;
+}
+message ApplyRequest {
+  string operation_id = 1;
+  optional uint32 semantic_version = 2;
+  optional Capability capability = 3;
+  optional Unit unit = 4;
+  int64 amount = 5;
+  reserved 6;
+  reserved "removed_legacy_hint";
+}
+message ApplyResponse {
+  string status = 1;
+  string operation_id = 2;
+  string result = 3;
+  string detail = 4;
+}
+service SyntheticActionsService {
+  rpc Apply(ApplyRequest) returns (ApplyResponse);
+}
