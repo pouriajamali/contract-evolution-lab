@@ -78,8 +78,20 @@ def main():
         if child.poll() is None:child.kill()
         child.wait(timeout=10)
     def send(v,url,file):return invoke('producer',v,'call',url,file,codes=(0,4))
+    def resolve_new(v,url,file):
+        initial=send(v,url,file)
+        if initial['status']!='UNKNOWN':
+            require(initial['status']=='APPLIED','New identity unexpectedly returned '+initial['status']);return initial
+        digest=hashlib.sha256(file.read_bytes()).hexdigest()
+        for attempt in range(1,3):
+            require(hashlib.sha256(file.read_bytes()).hexdigest()==digest,'Uncertain request bytes changed')
+            resolved=send(v,url,file)
+            history.append({'normalUnknownResolution':{'identity':initial['id'],'sameInputSha256':digest,'attempt':attempt,'status':resolved['status']}})
+            if resolved['status'] in ['APPLIED','REPLAY']:return resolved
+            require(resolved['status']=='UNKNOWN','Uncertain identity resolution denied/conflicted')
+        raise ValueError('Bounded same-identity resolution remains UNKNOWN')
     def accepted(v,url,case,identity,ticks,status='APPLIED'):
-        file=encode(v,case,identity,ticks);result=send(v,url,file);require(result['status']==status,(identity,result))
+        file=encode(v,case,identity,ticks);result=resolve_new(v,url,file) if status=='APPLIED' else send(v,url,file);require(result['status'] in ['APPLIED','REPLAY'] if status=='APPLIED' else result['status']==status,(identity,result))
         if status=='APPLIED':expected[identity]=ticks
         return file,result
     try:
@@ -111,7 +123,11 @@ def main():
         require(send(2,newurl,preserved)['status']=='REPLAY' and send(2,newurl,lost)['status']=='DENIED','Roundtrip capability boundary')
         oracle();mark('binary-json-binary-unknown-field-loss-counterexample')
         # Existing legacy rows require a bounded backfill; writers run as independent processes.
-        for i in range(35):accepted(1,oldurl,'legacy','seed-'+str(i),i+1)
+        for i in range(34):accepted(1,oldurl,'legacy','seed-'+str(i),i+1)
+        uncertain=out/'normal-unknown-after-commit';uncertain.mkdir();normal_child,normal_url=server(1,('after-commit',uncertain))
+        accepted(1,normal_url,'legacy','seed-34',35);stop(normal_child)
+        require(any('normalUnknownResolution' in event and event['normalUnknownResolution']['identity']=='seed-34' for event in history),'Controlled normal UNKNOWN path was not exercised')
+        oracle();mark('bounded-normal-unknown-resolves-byte-identical-business-request')
         oracle()
         require(invoke('consumer',2,'expand')['status']=='EXPAND_COMMITTED','Expand')
         require(invoke('consumer',2,'contract','ack-old-writers-stopped')['status']=='INVARIANT_NOT_READY','Incomplete backfill must stop')
@@ -120,8 +136,8 @@ def main():
         work=[(v,url,'writer-'+str(v)+'-'+str(i),i+101) for v,url in [(1,oldurl),(2,newurl)] for i in range(4)]
         files=[(v,url,identity,ticks,encode(v,'legacy',identity,ticks)) for v,url,identity,ticks in work]
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-            results=list(pool.map(lambda item:send(item[0],item[1],item[4]),files))
-        for item,result in zip(files,results):require(result['status']=='APPLIED','Concurrent writer');expected[item[2]]=item[3]
+            results=list(pool.map(lambda item:resolve_new(item[0],item[1],item[4]),files))
+        for item,result in zip(files,results):require(result['status'] in ['APPLIED','REPLAY'],'Concurrent writer');expected[item[2]]=item[3]
         oracle();mark('concurrent-old-new-writers-during-expand')
         require(invoke('consumer',2,'backfill','7')['status']=='BACKFILLED:7','Bounded first batch')
         partial=oracle();require(any(e.get('amount_scaled') is None for e in partial['effects']),'Actual partial backfill')
@@ -157,8 +173,12 @@ def main():
         oracle();mark('irreversible-contract-old-binary-stops-without-effects')
         control('restart');require(send(2,newurl,replay_file)['status']=='REPLAY','Ordinary PG restart preserves identity')
         final=oracle();mark('ordinary-pg-restart-retains-effect-history')
-        receipt={'status':'PASS','clientOs':platform.system(),'caseCount':len(checks),'cases':checks,'effectCount':len(expected),'total':sum(expected.values()),'finalStage':final['state']['stage'],'durationSeconds':round(time.monotonic()-start,3)}
+        receipt={'status':'PASS','clientOs':platform.system(),'caseCount':len(checks),'cases':checks,'effectCount':len(expected),'total':sum(expected.values()),'finalStage':final['state']['stage'],'normalUnknownResolutionAttempts':sum('normalUnknownResolution' in event for event in history),'durationSeconds':round(time.monotonic()-start,3)}
         (out/'history.json').write_text(json.dumps(history,indent=2)+'\n');(out/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps(receipt))
+    except Exception as error:
+        (out/'history.incomplete.json').write_text(json.dumps(history,indent=2)+'\n')
+        (out/'receipt.incomplete.json').write_text(json.dumps({'status':'INCOMPLETE_NOT_A_PASS','errorType':type(error).__name__,'passedCases':checks,'scope':'Preserved partial observations; no inferred outcome for unresolved identities'},indent=2)+'\n')
+        raise
     finally:
         for child in children:
             if child.poll() is None:stop(child)
