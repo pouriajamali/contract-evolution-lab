@@ -15,7 +15,7 @@ def main():
     require(len(dependencies)==10 and len(bom['packages'])==11,'Wrong shipped graph')
     for dep in dependencies:
         license_file=package/dep['licenseFile'];require(license_file.stat().st_size>=300 and hashlib.sha256(license_file.read_bytes()).hexdigest()==dep['licenseSha256'],'Full license differs')
-        require((package/dep['copyrightFile']).read_text().strip()==dep['copyright'],'Original copyright missing')
+        require((package/dep['copyrightFile']).read_text(encoding='utf-8').strip()==dep['copyright'],'Original copyright missing')
         item=next(i for i in bom['packages'] if i['name']==dep['id']);require(item['checksums']==[{'algorithm':'SHA512','checksumValue':dep['rawSignedNupkgSha512']}],'SBOM raw archive checksum differs')
     checks.extend(['all-shipped-component-full-licenses-and-copyright','separate-normalized-lock-and-raw-archive-hashes','both-core-and-aspnet-runtime-graphs'])
     for role in ['producer','consumer']:
