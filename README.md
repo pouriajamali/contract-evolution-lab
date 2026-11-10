@@ -91,3 +91,5 @@ The database row lock serializes this small example. A request has at most 16 Ki
 See [contract and migration stages](docs/CONTRACT.md), [decisions](docs/ADR.md), [failure/runbook](docs/RUNBOOK.md), [release evidence](docs/RELEASE.md), [notices](NOTICE.md) and [provenance](PROVENANCE.md).
 
 Original code: MIT. Fresh synthetic implementation; private/shared assets and existing career materials are excluded.
+
+[CI resource policy](docs/CI-POLICY.md): documentation-only changes get real lightweight document/pipeline checks; source, tag and manual runs retain native validation. Published runtime tags and release assets remain unchanged.
