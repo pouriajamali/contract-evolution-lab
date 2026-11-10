@@ -1,0 +1,209 @@
+{
+  "schema": "flagship-evidence/v1",
+  "documentationDate": "2026-11-10",
+  "project": "Contract Evolution Lab",
+  "repository": "https://github.com/pouriajamali/contract-evolution-lab",
+  "scope": "AI-assisted original synthetic local laboratory; documentation refresh, no runtime test or benchmark rerun",
+  "runtime": {
+    "tag": "v0.1.0-preview.1",
+    "commit": "f9ac353b7c64526267c137b30368d0490ffe6bb0",
+    "tree": "869ea26bd8b57b7089f2f64889fa8254038b0f79",
+    "signedTagObject": "a2e859bdc5cd9dee0102279d17a045fdd35403a6"
+  },
+  "release": {
+    "id": 439577698,
+    "url": "https://github.com/pouriajamali/contract-evolution-lab/releases/tag/v0.1.0-preview.1",
+    "prerelease": true,
+    "assets": [
+      {
+        "id": 728786275,
+        "name": "contract-evolution-lab-v0.1.0-preview.1-linux-x64.tar.gz",
+        "bytes": 169703391,
+        "sha256": "8796bdaccd08f514343dacae03e065cb4b4b6908e3a8dc7ea3a17e89b1591d7a",
+        "url": "https://github.com/pouriajamali/contract-evolution-lab/releases/download/v0.1.0-preview.1/contract-evolution-lab-v0.1.0-preview.1-linux-x64.tar.gz"
+      },
+      {
+        "id": 728786276,
+        "name": "contract-evolution-lab-v0.1.0-preview.1-source.zip",
+        "bytes": 94184,
+        "sha256": "eb295f4ec38e6e17537a1ef88ab17412b737947f442841dc0fadcb594b289940",
+        "url": "https://github.com/pouriajamali/contract-evolution-lab/releases/download/v0.1.0-preview.1/contract-evolution-lab-v0.1.0-preview.1-source.zip"
+      },
+      {
+        "id": 728786281,
+        "name": "contract-evolution-lab-v0.1.0-preview.1-win-x64.zip",
+        "bytes": 172551429,
+        "sha256": "20164c2b7dd64a92223354ac17a6c178a9f2153221afcb72d568e9c0272cf0f9",
+        "url": "https://github.com/pouriajamali/contract-evolution-lab/releases/download/v0.1.0-preview.1/contract-evolution-lab-v0.1.0-preview.1-win-x64.zip"
+      },
+      {
+        "id": 728786274,
+        "name": "SHA256SUMS.txt",
+        "bytes": 358,
+        "sha256": "b68a5c8c130223dd9336b1bbb66d3d93d179d2b9ee3f046a393d32204dd6956d",
+        "url": "https://github.com/pouriajamali/contract-evolution-lab/releases/download/v0.1.0-preview.1/SHA256SUMS.txt"
+      },
+      {
+        "id": 728809141,
+        "name": "SHA256SUMS.txt.sig",
+        "bytes": 294,
+        "sha256": "7ccd7285f09f1fbeadf8c93aa5db1f44adf210623cff532d3afb139b681ddb97",
+        "url": "https://github.com/pouriajamali/contract-evolution-lab/releases/download/v0.1.0-preview.1/SHA256SUMS.txt.sig"
+      },
+      {
+        "id": 728809169,
+        "name": "SIGNING-PUBLIC-KEY.pub",
+        "bytes": 113,
+        "sha256": "cc7038b2d98f856af97b58eb06619ff441fbe9b178da5396f61d1ccdf7a65e7c",
+        "url": "https://github.com/pouriajamali/contract-evolution-lab/releases/download/v0.1.0-preview.1/SIGNING-PUBLIC-KEY.pub"
+      }
+    ]
+  },
+  "tagCi": {
+    "id": 42688176547,
+    "url": "https://github.com/pouriajamali/contract-evolution-lab/actions/runs/42688176547",
+    "headSha": "f9ac353b7c64526267c137b30368d0490ffe6bb0",
+    "event": "push",
+    "headBranch": "v0.1.0-preview.1",
+    "conclusion": "success"
+  },
+  "signing": {
+    "trustedFingerprint": "SHA256:AgU5bZlJSjUu0KsWMmVEEr+BfXpcMVNroTA33bHcQdU",
+    "namespace": "file",
+    "guide": "../PROVENANCE.md",
+    "trustBoundary": "Key shipped beside bytes is not independent identity proof; SSH provenance is not OS code signing"
+  },
+  "sourceFilesComparedDuringDelivery": 69,
+  "observedTaggedEvidence": {
+    "unitsEachOs": 26,
+    "tagProofPlatforms": [
+      {
+        "rid": "win-x64",
+        "unitCases": 26,
+        "packageChecks": {
+          "status": "PASS",
+          "os": "Windows",
+          "sourceCommit": "f9ac353b7c64526267c137b30368d0490ffe6bb0",
+          "rid": "win-x64",
+          "checkCount": 8,
+          "checks": [
+            "exact-file-set-size-and-sha256",
+            "all-shipped-component-full-licenses-and-copyright",
+            "separate-normalized-lock-and-raw-archive-hashes",
+            "both-core-and-aspnet-runtime-graphs",
+            "actual-native-producer-v1-help-version-source",
+            "actual-native-producer-v2-help-version-source",
+            "actual-native-consumer-v1-help-version-source",
+            "actual-native-consumer-v2-help-version-source"
+          ],
+          "payloadFiles": 1159,
+          "shippedComponents": 10,
+          "immutableDescriptors": {
+            "v1": "834b0640f801ed94e345dd41e5a15744eaa09a184c3b5e233985f77623333464",
+            "v2": "05c8396cfad31661d119f780219e9b77468f9c74a64f921b41c85eb0b6f3bbfe"
+          }
+        },
+        "nativeArchiveSha256": "20164c2b7dd64a92223354ac17a6c178a9f2153221afcb72d568e9c0272cf0f9"
+      },
+      {
+        "rid": "linux-x64",
+        "unitCases": 26,
+        "packageChecks": {
+          "status": "PASS",
+          "os": "Linux",
+          "sourceCommit": "f9ac353b7c64526267c137b30368d0490ffe6bb0",
+          "rid": "linux-x64",
+          "checkCount": 8,
+          "checks": [
+            "exact-file-set-size-and-sha256",
+            "all-shipped-component-full-licenses-and-copyright",
+            "separate-normalized-lock-and-raw-archive-hashes",
+            "both-core-and-aspnet-runtime-graphs",
+            "actual-native-producer-v1-help-version-source",
+            "actual-native-producer-v2-help-version-source",
+            "actual-native-consumer-v1-help-version-source",
+            "actual-native-consumer-v2-help-version-source"
+          ],
+          "payloadFiles": 1153,
+          "shippedComponents": 10,
+          "immutableDescriptors": {
+            "v1": "834b0640f801ed94e345dd41e5a15744eaa09a184c3b5e233985f77623333464",
+            "v2": "05c8396cfad31661d119f780219e9b77468f9c74a64f921b41c85eb0b6f3bbfe"
+          }
+        },
+        "nativeArchiveSha256": "8796bdaccd08f514343dacae03e065cb4b4b6908e3a8dc7ea3a17e89b1591d7a"
+      }
+    ],
+    "fullServiceIntegrationTaggedCiOs": "Linux",
+    "fullServiceIntegrationWindowsCiClaim": false,
+    "integrationCaseCount": 14,
+    "integrationCases": [
+      "ambient-config-isolation-and-bounded-literal-loopback-inputs",
+      "actual-four-combination-grpc-matrix-additive-safe",
+      "wire-compatible-semantic-change-and-absence-deny",
+      "binary-json-binary-unknown-field-loss-counterexample",
+      "bounded-normal-unknown-resolves-byte-identical-business-request",
+      "expand-and-database-unit-invariant-fail-closed",
+      "concurrent-old-new-writers-during-expand",
+      "legacy-writer-omits-new-column-before-original-trigger",
+      "bounded-backfill-resumes-across-real-processes",
+      "pre-contract-rollback-preserves-business-history",
+      "before-after-commit-process-crash-same-identity-resolution",
+      "cross-version-durable-identity-receipt-and-conflict",
+      "irreversible-contract-old-binary-stops-without-effects",
+      "ordinary-pg-restart-retains-effect-history"
+    ],
+    "effectCount": 50,
+    "total": 1554,
+    "finalStage": 2,
+    "legacyGuard": {
+      "realV1NullInputs": 4,
+      "deliberateNonnullProbeRejected": 1
+    }
+  },
+  "namedSourceEvidence": [
+    {
+      "path": "tests/Core.Tests/PolicyTests.cs",
+      "name": "OldBinaryNeverAuthorizesNewUnits",
+      "url": "https://github.com/pouriajamali/contract-evolution-lab/blob/f9ac353b7c64526267c137b30368d0490ffe6bb0/tests/Core.Tests/PolicyTests.cs"
+    },
+    {
+      "path": "tests/Core.Tests/PolicyTests.cs",
+      "name": "CrossRepresentationHasOneBusinessIdentity",
+      "url": "https://github.com/pouriajamali/contract-evolution-lab/blob/f9ac353b7c64526267c137b30368d0490ffe6bb0/tests/Core.Tests/PolicyTests.cs"
+    },
+    {
+      "path": "tests/Core.Tests/PolicyTests.cs",
+      "name": "LostConfirmationDenies",
+      "url": "https://github.com/pouriajamali/contract-evolution-lab/blob/f9ac353b7c64526267c137b30368d0490ffe6bb0/tests/Core.Tests/PolicyTests.cs"
+    },
+    {
+      "path": "tools/integration.py",
+      "name": "binary-json-binary-unknown-field-loss-counterexample",
+      "url": "https://github.com/pouriajamali/contract-evolution-lab/blob/f9ac353b7c64526267c137b30368d0490ffe6bb0/tools/integration.py"
+    },
+    {
+      "path": "tools/integration.py",
+      "name": "legacy-writer-omits-new-column-before-original-trigger",
+      "url": "https://github.com/pouriajamali/contract-evolution-lab/blob/f9ac353b7c64526267c137b30368d0490ffe6bb0/tools/integration.py"
+    },
+    {
+      "path": "tools/integration.py",
+      "name": "before-after-commit-process-crash-same-identity-resolution",
+      "url": "https://github.com/pouriajamali/contract-evolution-lab/blob/f9ac353b7c64526267c137b30368d0490ffe6bb0/tools/integration.py"
+    },
+    {
+      "path": "tools/integration.py",
+      "name": "irreversible-contract-old-binary-stops-without-effects",
+      "url": "https://github.com/pouriajamali/contract-evolution-lab/blob/f9ac353b7c64526267c137b30368d0490ffe6bb0/tools/integration.py"
+    }
+  ],
+  "claimsNotEstablished": [
+    "Production or venue suitability",
+    "Live trading or profitability",
+    "Independent human authorship or individual mastery from CI alone",
+    "Real adoption or team-management history",
+    "Performance superiority"
+  ],
+  "reproductionBoundary": "Use exact runtime tag/source and fresh local outputs; CI artifact retention and timing reproducibility are not guaranteed; current documentation main can differ from runtime source"
+}
