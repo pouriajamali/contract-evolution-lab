@@ -97,3 +97,7 @@ See [contract and migration stages](docs/CONTRACT.md), [decisions](docs/ADR.md),
 Original code: MIT. Fresh synthetic implementation; private/shared assets and existing career materials are excluded.
 
 [CI resource policy](docs/CI-POLICY.md): documentation-only changes get real lightweight document/pipeline checks; source, tag and manual runs retain native validation. Published runtime tags and release assets remain unchanged.
+
+## Source readability and historical runtime
+
+The ownership correction and C# layout changes have separate reviewable commits. Formatting preserves complete syntax, token text and values, comments and directives. It is not compiled-byte or performance equivalence evidence. The historical [v0.1.0-preview.1 runtime source](https://github.com/pouriajamali/contract-evolution-lab/tree/f9ac353b7c64526267c137b30368d0490ffe6bb0) remains pinned at `f9ac353b7c64526267c137b30368d0490ffe6bb0`; use the actual bundle manifest and release tag for this version's source.
