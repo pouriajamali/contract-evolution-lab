@@ -20,6 +20,10 @@ Read the [architecture case study](docs/ARCHITECTURE-CASE-STUDY.md) for the deci
 | Remove the legacy database column | Old binary returns SCHEMA_UNSUPPORTED; rollback is explicitly blocked |
 | Keep an old writer independent of the new column | Test-only pre-fill database guard observes null scaled input from v1 and the unchanged original trigger supplies the stored scaled value; app/core/contract hashes stay fixed across stages |
 
+## Connection ownership correction
+
+The current source candidate closes a newly allocated connection if opening fails or is cancelled. [Read the ownership decision, executable counterexamples and evidence limits](docs/CONNECTION-OWNERSHIP.md). The published preview linked below remains the earlier release until a new candidate passes its independent release gate.
+
 ## Run the preview
 
 Published preview: [`v0.1.0-preview.1`](https://github.com/pouriajamali/contract-evolution-lab/releases/tag/v0.1.0-preview.1). Download **[Windows x64](https://github.com/pouriajamali/contract-evolution-lab/releases/download/v0.1.0-preview.1/contract-evolution-lab-v0.1.0-preview.1-win-x64.zip)**, **[Linux x64](https://github.com/pouriajamali/contract-evolution-lab/releases/download/v0.1.0-preview.1/contract-evolution-lab-v0.1.0-preview.1-linux-x64.tar.gz)** or [source](https://github.com/pouriajamali/contract-evolution-lab/releases/download/v0.1.0-preview.1/contract-evolution-lab-v0.1.0-preview.1-source.zip). Get the [checksums](https://github.com/pouriajamali/contract-evolution-lab/releases/download/v0.1.0-preview.1/SHA256SUMS.txt), [checksum signature](https://github.com/pouriajamali/contract-evolution-lab/releases/download/v0.1.0-preview.1/SHA256SUMS.txt.sig) and [public key](https://github.com/pouriajamali/contract-evolution-lab/releases/download/v0.1.0-preview.1/SIGNING-PUBLIC-KEY.pub); verify downloaded bytes with [PROVENANCE.md](PROVENANCE.md) before executing them. Local builds and CI artifacts are separate from published releases.
