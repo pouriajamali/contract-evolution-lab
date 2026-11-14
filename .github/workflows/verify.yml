@@ -138,6 +138,25 @@ jobs:
           name: bundle-${{ matrix.rid }}
           path: artifacts/delivery/*
           if-no-files-found: error
+      - name: Bound selected proof artifact bytes
+        shell: pwsh
+        run: |
+          $paths = @('artifacts/unit.xml','artifacts/package-checks.json','artifacts/dependency-advisories.json','artifacts/notices-tests/receipt.json','artifacts/verifier-tests/receipt.json','artifacts/build/archive.json','artifacts/build/toolchain-check.json','artifacts/build/contract-checks/receipt.json','artifacts/integration/receipt.json')
+          $total = 0
+          foreach ($path in $paths) {
+            if (Test-Path -LiteralPath $path) { $total += (Get-Item -LiteralPath $path).Length }
+          }
+          $profileRoot = 'artifacts/ce07-profile'
+          if (Test-Path -LiteralPath $profileRoot) {
+            $runs = @(Get-ChildItem -LiteralPath $profileRoot -Directory | Where-Object { $_.Name -match '^ce07-[0-9a-f]{32}$' })
+            if ($runs.Count -gt 1) { throw 'Only one integration run per native job' }
+            foreach ($run in $runs) {
+              foreach ($name in @('admission.sanitized.json','resource.sanitized.json','semantic-matrix.json','receipt.sanitized.json')) {
+                $total += (Get-Item -LiteralPath (Join-Path $run.FullName $name)).Length
+              }
+            }
+          }
+          if ($total -gt 8388608) { throw 'Selected proof artifact exceeds8MiB; do not upload' }
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           retention-days: ${{ (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') && 7 || 3 }}
