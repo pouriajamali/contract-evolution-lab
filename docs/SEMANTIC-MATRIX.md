@@ -64,10 +64,20 @@ PG retains64MiB shared buffers/24 connections/256MiB max_wal_size, not a total-R
 
 Local heavy work uses the same canonical manager-owned lane after explicit07 admission. A busy/ambiguous lease is HOLD; no reset, alternate address or stale-age takeover. Release requires exact token/PID/start identity and actual owned-tree termination, also on a proven-terminal failure. Cleanup kill cannot become PASS. Fresh absolute paths only, no overwrite/symlink escape or recursive cleanup.
 
-## Sanitized evidence and release boundary
+## Proof transport on ordinary source validation
 
-New uploadable files: admission.sanitized.json,resource.sanitized.json,semantic-matrix.json,receipt.sanitized.json; <=256KiB each/1MiB total. Existing bounded case-summary proof is retained in its original artifact path with explicit field checks. Never upload private connection/raw history/snapshots, PG data/logs, environment or whole output. Unobserved peaks remain null. Preserve local failure evidence privately.
+Project07 uses a bounded log transport instead of artifact/cache uploads on ordinary PR/main validation. The owner explicitly authorized only the declared proof set and this public repository's persistent GitHub job logs. That data/destination authorization does not grant a push, CI trigger, tag, dispatch or release.
 
-The one Linux CI invocation replaces the old one; Windows native/source checks remain without claiming Windows service integration. Existing triggers, native/Buf checks, action pins, permissions, concurrency, timeout and publish gates stay. Code alone authorizes no push/CI/tag/publication; exact candidate and finite budget gates remain. No new runtime release is needed and old preview.2 assets/signatures stay immutable.
+The exact common set is unit.xml, package-checks.json, dependency-advisories.json, notices-tests/receipt.json, verifier-tests/receipt.json, build/archive.json, build/toolchain-check.json and build/contract-checks/receipt.json. Linux additionally requires integration/receipt.json plus admission.sanitized.json, resource.sanitized.json, semantic-matrix.json and receipt.sanitized.json. Windows explicitly emits five Linux-only inapplicable entries. Missing applicable/common files fail; no directory glob silently drops them.
+
+The fixed `CE07_PUBLIC_PROOF_V1` protocol emits begin, file, chunk, inapplicable and end records. File records bind exact declared name, byte length, SHA256 and chunk count; ordered Base64 chunks carry inert data. Receipt contents are never executed or evaluated. The job summary contains only an HTML-escaped index <=16KiB, never a proof body.
+
+The complete set is limited to8MiB raw and12MiB framed encoded output per OS. Each of the four sanitized profile files stays<=256KiB and their sum<=1MiB. Explicit schema/status/source/run/hash/SQL/rollback/resource checks remain before emission. Neither private history/connection/PG files nor environment, credentials, raw host logs or a whole demo directory enter this allowlist.
+
+After a separately authorized exact-candidate CI event, independently retrieve that exact run/job's logs, require a complete begin/end frame and the exact per-OS set, recover every ordered chunk and compare byte lengths and SHA256 before parsing each proof. Missing, duplicate, truncated, altered or unretrievable data is INCOMPLETE/HOLD; there is no artifact fallback or relaxed bound. Local formatter/decoder fixtures do not establish real hosted retrieval.
+
+The proof artifact action now has the same existing tag/dispatch condition as the bundle action. Existing tag/release blocks, event definitions, action pins, permissions, native/Buf/unit/package/full-opt-in/cap checks and job limits remain. No tag or dispatch is granted. This project-specific transport rule supersedes the older common policy's ordinary proof-upload description; the policy's native-check and protection requirements still apply.
+
+Current account/storage headroom remains UNKNOWN; no billing credential or account audit is introduced by this transport design. Exact public-source/CI approval remains separate. The published preview.2 package, hashes and signatures remain unchanged, and no new runtime release is proposed.
 
 This synthetic single-host evidence does not establish multi-host rollout, zero downtime, production suitability, security certification or throughput.

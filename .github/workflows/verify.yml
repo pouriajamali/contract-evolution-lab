@@ -110,6 +110,7 @@ jobs:
         shell: pwsh
         run: |
           $runId = 'ce07-' + [guid]::NewGuid().ToString('N')
+          "CE07_PROFILE_RUN_ID=$runId" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $root = Join-Path $env:GITHUB_WORKSPACE 'artifacts/ce07-profile'
           $out = Join-Path $root $runId
           python tools/run_semantic_profile.py --ci --inputs (Join-Path $root inputs) --out $out --run-id $runId
@@ -138,26 +139,169 @@ jobs:
           name: bundle-${{ matrix.rid }}
           path: artifacts/delivery/*
           if-no-files-found: error
-      - name: Bound selected proof artifact bytes
+      - name: Transport complete bounded public proof in job logs
         shell: pwsh
         run: |
-          $paths = @('artifacts/unit.xml','artifacts/package-checks.json','artifacts/dependency-advisories.json','artifacts/notices-tests/receipt.json','artifacts/verifier-tests/receipt.json','artifacts/build/archive.json','artifacts/build/toolchain-check.json','artifacts/build/contract-checks/receipt.json','artifacts/integration/receipt.json')
-          $total = 0
-          foreach ($path in $paths) {
-            if (Test-Path -LiteralPath $path) { $total += (Get-Item -LiteralPath $path).Length }
+          $ErrorActionPreference = 'Stop'
+          $marker = 'CE07_PUBLIC_PROOF_V1'
+          $root = [IO.Path]::GetFullPath($env:GITHUB_WORKSPACE)
+          $osName = $env:RUNNER_OS
+          if ($osName -notin @('Linux','Windows') -or $env:GITHUB_SHA -notmatch '^[0-9a-f]{40}$') { throw 'Known OS and exact source SHA required' }
+          $rid = if ($osName -eq 'Linux') { 'linux-x64' } else { 'win-x64' }
+          function Hash-Bytes([byte[]]$value) { return [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($value)).ToLowerInvariant() }
+          function Need($ok, [string]$cause) { if (-not $ok) { throw $cause } }
+          function Same-Keys($value, [string[]]$wanted) {
+            Need (@(Compare-Object @($value.Keys | Sort-Object) @($wanted | Sort-Object)).Count -eq 0) 'Unexpected proof schema fields'
           }
-          $profileRoot = 'artifacts/ce07-profile'
-          if (Test-Path -LiteralPath $profileRoot) {
-            $runs = @(Get-ChildItem -LiteralPath $profileRoot -Directory | Where-Object { $_.Name -match '^ce07-[0-9a-f]{32}$' })
-            if ($runs.Count -gt 1) { throw 'Only one integration run per native job' }
-            foreach ($run in $runs) {
-              foreach ($name in @('admission.sanitized.json','resource.sanitized.json','semantic-matrix.json','receipt.sanitized.json')) {
-                $total += (Get-Item -LiteralPath (Join-Path $run.FullName $name)).Length
+          $common = @(
+            @('unit.xml','artifacts/unit.xml','xml'),
+            @('package-checks.json','artifacts/package-checks.json','package'),
+            @('dependency-advisories.json','artifacts/dependency-advisories.json','audit'),
+            @('notices-tests/receipt.json','artifacts/notices-tests/receipt.json','tests'),
+            @('verifier-tests/receipt.json','artifacts/verifier-tests/receipt.json','tests'),
+            @('build/archive.json','artifacts/build/archive.json','archive'),
+            @('build/toolchain-check.json','artifacts/build/toolchain-check.json','toolchain'),
+            @('build/contract-checks/receipt.json','artifacts/build/contract-checks/receipt.json','contracts')
+          )
+          $linux = @(
+            @('integration/receipt.json','artifacts/integration/receipt.json','integration'),
+            @('admission.sanitized.json','','admission'),
+            @('resource.sanitized.json','','resources'),
+            @('semantic-matrix.json','','matrix'),
+            @('receipt.sanitized.json','','summary')
+          )
+          if ($osName -eq 'Linux') {
+            Need ($env:CE07_PROFILE_RUN_ID -cmatch '^ce07-[0-9a-f]{32}$') 'Exact completed Linux run identity required'
+            for ($i=1; $i -lt $linux.Count; $i++) { $linux[$i][1] = 'artifacts/ce07-profile/' + $env:CE07_PROFILE_RUN_ID + '/' + $linux[$i][0] }
+          }
+          $rows = [Collections.Generic.List[object]]::new()
+          $rawTotal = 0L
+          $sanitizedTotal = 0L
+          foreach ($entry in @($common) + @($linux)) {
+            $applicable = $entry[2] -notin @('integration','admission','resources','matrix','summary') -or $osName -eq 'Linux'
+            if (-not $applicable) {
+              $rows.Add([ordered]@{name=$entry[0];applicable=$false;reason='Linux-only profile';length=0;sha256=$null;chunks=0})
+              continue
+            }
+            $path = [IO.Path]::GetFullPath((Join-Path $root $entry[1]))
+            Need ($path.StartsWith($root + [IO.Path]::DirectorySeparatorChar,[StringComparison]::Ordinal)) 'Proof path escaped workspace'
+            $info = Get-Item -LiteralPath $path -ErrorAction Stop
+            Need (-not $info.PSIsContainer -and -not ($info.Attributes -band [IO.FileAttributes]::ReparsePoint) -and $info.Length -gt 0 -and $info.Length -le 8388608) 'Nonempty regular bounded applicable proof required'
+            # Refuse linked parent paths as well; never walk or glob private trees.
+            $parent = $info.Directory
+            while ($null -ne $parent -and $parent.FullName -ne $root) {
+              Need (-not ($parent.Attributes -band [IO.FileAttributes]::ReparsePoint)) 'Linked proof parent not admitted'
+              $parent = $parent.Parent
+            }
+            $rawTotal += $info.Length
+            Need ($rawTotal -le 8388608) 'Full public proof raw cap8MiB'
+            if ($entry[2] -in @('admission','resources','matrix','summary')) {
+              Need ($info.Length -le 262144) 'Sanitized receipt cap256KiB'
+              $sanitizedTotal += $info.Length
+              Need ($sanitizedTotal -le 1048576) 'Four sanitized receipts cap1MiB'
+            }
+            $bytes = [IO.File]::ReadAllBytes($path)
+            Need ($bytes.Length -eq $info.Length) 'Proof changed while reading'
+            $data = $null
+            if ($entry[2] -eq 'xml') {
+              $settings = [Xml.XmlReaderSettings]::new()
+              $settings.DtdProcessing = [Xml.DtdProcessing]::Prohibit
+              $settings.XmlResolver = $null
+              $reader = [Xml.XmlReader]::Create([IO.MemoryStream]::new($bytes),$settings)
+              try {
+                $doc = [Xml.XmlDocument]::new(); $doc.XmlResolver = $null; $doc.Load($reader)
+                $assemblies = @($doc.SelectNodes('//assembly'))
+                Need ($assemblies.Count -gt 0) 'No native unit assemblies'
+                foreach ($assembly in $assemblies) {
+                  Need ($assembly.HasAttribute('failed') -and $assembly.HasAttribute('errors') -and $assembly.HasAttribute('total') -and [int]$assembly.failed -eq 0 -and [int]$assembly.errors -eq 0 -and [int]$assembly.total -gt 0) 'Native unit failure/unobserved totals'
+                }
+              } finally { $reader.Dispose() }
+            } else {
+              $data = [Text.UTF8Encoding]::new($false,$true).GetString($bytes) | ConvertFrom-Json -AsHashtable -Depth 100
+              Need ($data -is [Collections.IDictionary]) 'Object proof required'
+              switch ($entry[2]) {
+                'audit' { Need ($data.status -ceq 'NO_KNOWN_ADVISORIES_REPORTED' -and @($data.reports).Count -gt 0) 'Advisory proof failed' }
+                'archive' { Need ($data.status -ceq 'PACKAGED_NOT_RUNTIME_PROOF' -and $data.sourceCommit -ceq $env:GITHUB_SHA -and $data.rid -ceq $rid -and $data.localCandidate -eq $false) 'Exact non-promoted native archive proof required' }
+                'package' { Need ($data.status -ceq 'PASS' -and $data.sourceCommit -ceq $env:GITHUB_SHA -and $data.rid -ceq $rid) 'Exact native package proof failed' }
+                'tests' { Need ($data.status -ceq 'PASS' -and $data.run -gt 0 -and $data.failures -eq 0 -and $data.errors -eq 0) 'Notices/verifier proof failed' }
+                'toolchain' { Need ($data.status -ceq 'PASS' -and $data.grpcTools -ceq '2.85.0' -and $data.actualProtoc -ceq 'libprotoc 35.1' -and $data.googleProtobuf -ceq '3.36.2') 'Pinned compiler/runtime proof failed' }
+                'contracts' { Need ($data.status -ceq 'PASS' -and $data.bufVersion -ceq '1.75.0' -and $data.policy -ceq 'FILE' -and @($data.checks).Count -eq 4 -and $data.descriptors.v1 -cmatch '^[0-9a-f]{64}$' -and $data.descriptors.v2 -cmatch '^[0-9a-f]{64}$') 'Buf FILE proof failed' }
+                'integration' {
+                  Same-Keys $data @('status','clientOs','caseCount','cases','effectCount','total','finalStage','legacyInputGuard','immutableApplicationFiles','normalUnknownResolutionAttempts','durationSeconds')
+                  Need ($data.status -ceq 'PASS' -and $data.clientOs -ceq 'Linux' -and $data.caseCount -eq 15 -and @($data.cases).Count -eq 15 -and $data.effectCount -eq 52 -and $data.total -eq 3556 -and $data.finalStage -eq 2) 'Full inherited+matrix integration proof failed'
+                  Need (@($data.legacyInputGuard.observations).Count -eq 4 -and @($data.legacyInputGuard.rejectedIds).Count -eq 1 -and $data.legacyInputGuard.rejectedIds[0] -ceq 'writer-1-guard-probe' -and $data.legacyInputGuard.originalFillTriggerPresent -eq $true) 'Legacy writer proof missing'
+                }
+                'admission' { Need ($data.schema -ceq 'contract-evolution/admission/v1' -and $data.status -ceq 'ADMITTED' -and $data.fingerprint -ceq 'SHA256:AgU5bZlJSjUu0KsWMmVEEr+BfXpcMVNroTA33bHcQdU' -and $data.archiveSha256 -ceq '41d0eb07766a45ec0c3e4e93e092ec63b73a2478b0c89e8c79c1773eee0035cd') 'Frozen runtime admission failed' }
+                'resources' {
+                  Need ($data.schema -ceq 'contract-evolution/resources/v1' -and $data.status -ceq 'OBSERVED_EFFECTIVE_CAPS_AND_TERMINAL' -and $data.terminalUnit -eq $true -and $data.cgroupEmpty -eq $true) 'Terminal resource proof failed'
+                  Need ($data.effectiveCaps.cpuQuotaPercent -eq 200 -and $data.effectiveCaps.memoryMaxBytes -eq 4294967296 -and $data.effectiveCaps.memorySwapMaxBytes -eq 0 -and $data.effectiveCaps.tasksMax -eq 128 -and $data.effectiveCaps.runtimeMaxSeconds -gt 0 -and $data.effectiveCaps.runtimeMaxSeconds -le 900) 'Effective kernel caps differ'
+                  Need (($null -eq $data.peakTasks -or $data.peakTasks -le 128) -and ($null -eq $data.peakMemoryBytes -or $data.peakMemoryBytes -le 4294967296)) 'Observed resource ceiling exceeded'
+                }
+                'matrix' {
+                  Need ($data.schema -ceq 'contract-evolution/semantic-matrix/v1' -and $data.status -ceq 'PASS' -and @($data.cases).Count -eq 8 -and $data.caseCounts.frames -eq 8 -and $data.caseCounts.parserObservations -eq 16 -and $data.caseCounts.rpcCalls -eq 16) 'Exact semantic matrix observations missing'
+                  $literal = [ordered]@{'tuple-111'='APPLIED,REPLAY';'tuple-112'='DENIED,DENIED';'tuple-121'='DENIED,DENIED';'tuple-122'='DENIED,DENIED';'tuple-211'='DENIED,DENIED';'tuple-212'='DENIED,DENIED';'tuple-221'='DENIED,DENIED';'tuple-222'='DENIED,APPLIED'}
+                  Need (@(Compare-Object @($data.cases.id | Sort-Object) @($literal.Keys | Sort-Object)).Count -eq 0) 'Exact literal case set differs'
+                  foreach ($case in $data.cases) {
+                    Need (@($case.parsers).Count -eq 2 -and @($case.consumerResults).Count -eq 2 -and ($case.consumerResults.status -join ',') -ceq $literal[$case.id]) 'Literal parser/semantic outcome proof differs'
+                    for ($n=0; $n -lt 2; $n++) {
+                      $p = $case.parsers[$n]
+                      Need ($p.producerVersion -eq $n+1 -and $p.exit -eq 0 -and $p.id -ceq $case.id -and $p.amount -ceq '2000') 'Actual parser proof differs'
+                      Need ($p.semantic -eq $case.tuple[0] -and $p.capability -eq $case.tuple[1] -and $p.unit -eq $case.tuple[2]) 'Tuple parser values differ'
+                      Need (($n -eq 0 -and $null -eq $p.confirmed) -or ($n -eq 1 -and $p.confirmed -eq $true)) 'Confirmation presence proof differs'
+                      if ($case.consumerResults[$n].status -ne 'APPLIED') {
+                        $sql = $case.sqlComparisons[$n]
+                        Need ($sql.comparison -ceq 'UNCHANGED' -and $sql.beforeSha256 -ceq $sql.afterSha256) 'Denial/replay SQL equality proof missing'
+                      }
+                    }
+                  }
+                  Same-Keys $data.binaryIdentityBefore @($data.binaryIdentityAfter.Keys)
+                  foreach ($name in $data.binaryIdentityBefore.Keys) { Need ($data.binaryIdentityBefore[$name] -ceq $data.binaryIdentityAfter[$name]) 'Immutable application hash differs' }
+                  Need ($data.rollback.status -ceq 'ROLLBACK_BLOCKED' -and $data.rollback.exit -eq 0 -and $data.rollback.sqlUnchanged -eq $true -and $data.rollback.stageBefore -eq 2 -and $data.rollback.stageAfter -eq 2 -and $data.rollback.beforeSha256 -ceq $data.rollback.afterSha256) 'Explicit logical blocked rollback missing'
+                }
+                'summary' { Need ($data.schema -ceq 'contract-evolution/profile-summary/v1' -and $data.status -ceq 'PASS' -and $data.caseCount -eq 15 -and $data.effectCount -eq 52 -and $data.total -eq 3556 -and $data.finalStage -eq 2 -and $data.rollbackStatus -ceq 'ROLLBACK_BLOCKED') 'Final profile conservation proof failed' }
+              }
+              if ($entry[2] -in @('admission','matrix','summary')) {
+                Need ($data.projectId -ceq '07' -and $data.runId -ceq $env:CE07_PROFILE_RUN_ID -and $data.harnessCommit -ceq $env:GITHUB_SHA -and $data.runtimeCommit -ceq 'ce9c2916e591dbe647e50d0990c4af4ba4a2ae88') 'Exact source/runtime/run identity differs'
               }
             }
+            $rows.Add([ordered]@{name=$entry[0];applicable=$true;length=$bytes.Length;sha256=(Hash-Bytes $bytes);bytes=$bytes;data=$data;chunks=0})
           }
-          if ($total -gt 8388608) { throw 'Selected proof artifact exceeds8MiB; do not upload' }
+          if ($osName -eq 'Linux') {
+            $byName = @{}; foreach ($row in $rows) { $byName[$row.name]=$row }
+            $s = $byName['receipt.sanitized.json'].data
+            Need ($s.inputReceiptSha256 -ceq $byName['admission.sanitized.json'].sha256 -and $s.resourceReceiptSha256 -ceq $byName['resource.sanitized.json'].sha256 -and $s.matrixReceiptSha256 -ceq $byName['semantic-matrix.json'].sha256) 'Cross-receipt identity differs'
+            $harness = Hash-Bytes ([IO.File]::ReadAllBytes((Join-Path $root 'tools/integration.py')))
+            $profile = Hash-Bytes ([IO.File]::ReadAllBytes((Join-Path $root 'tools/semantic-profile.inputs.json')))
+            Need ($byName['admission.sanitized.json'].data.harnessSha256 -ceq $harness -and $byName['semantic-matrix.json'].data.harnessSha256 -ceq $harness -and $s.profileSha256 -ceq $profile -and $byName['admission.sanitized.json'].data.profileSha256 -ceq $profile -and $byName['semantic-matrix.json'].data.profileSha256 -ceq $profile) 'Current source/profile blob identity differs'
+          }
+          $lines = [Collections.Generic.List[string]]::new()
+          $index = [Collections.Generic.List[object]]::new()
+          function Frame($record) { $lines.Add($marker + ' ' + ($record | ConvertTo-Json -Compress -Depth 16)) }
+          Frame ([ordered]@{record='begin';os=$osName;rid=$rid;sourceCommit=$env:GITHUB_SHA;entries=$rows.Count;rawBytes=$rawTotal})
+          foreach ($row in $rows) {
+            if (-not $row.applicable) {
+              Frame ([ordered]@{record='inapplicable';name=$row.name;reason=$row.reason})
+              $index.Add([ordered]@{name=$row.name;applicable=$false;reason=$row.reason})
+              continue
+            }
+            $encoded = [Convert]::ToBase64String($row.bytes)
+            $chunks = [int][Math]::Ceiling($encoded.Length / 8192.0)
+            Frame ([ordered]@{record='file';name=$row.name;length=$row.length;sha256=$row.sha256;chunks=$chunks})
+            for ($offset=0; $offset -lt $encoded.Length; $offset+=8192) {
+              Frame ([ordered]@{record='chunk';name=$row.name;index=[int]($offset/8192);data=$encoded.Substring($offset,[Math]::Min(8192,$encoded.Length-$offset))})
+            }
+            $index.Add([ordered]@{name=$row.name;applicable=$true;length=$row.length;sha256=$row.sha256;chunks=$chunks})
+          }
+          Frame ([ordered]@{record='end';os=$osName;sourceCommit=$env:GITHUB_SHA;entries=$rows.Count;files=@($rows | Where-Object {$_.applicable}).Count;rawBytes=$rawTotal})
+          $encodedTotal = 0L; foreach ($line in $lines) { $encodedTotal += [Text.Encoding]::UTF8.GetByteCount($line)+2 }
+          Need ($encodedTotal -le 12582912) 'Encoded framed proof log cap12MiB'
+          $indexJson = [ordered]@{protocol=$marker;os=$osName;sourceCommit=$env:GITHUB_SHA;rawBytes=$rawTotal;encodedBytes=$encodedTotal;files=$index} | ConvertTo-Json -Depth 12
+          $summary = '<pre>' + [Net.WebUtility]::HtmlEncode($indexJson) + '</pre>' + [Environment]::NewLine
+          Need ([Text.Encoding]::UTF8.GetByteCount($summary) -le 16384) 'Summary index cap16KiB'
+          [IO.File]::WriteAllText($env:GITHUB_STEP_SUMMARY,$summary,[Text.UTF8Encoding]::new($false))
+          foreach ($line in $lines) { [Console]::WriteLine($line) }
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
           retention-days: ${{ (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') && 7 || 3 }}
           name: proof-${{ matrix.rid }}
@@ -171,10 +315,10 @@ jobs:
             artifacts/build/toolchain-check.json
             artifacts/build/contract-checks/receipt.json
             artifacts/integration/receipt.json
-            artifacts/ce07-profile/ce07-*/admission.sanitized.json
-            artifacts/ce07-profile/ce07-*/resource.sanitized.json
-            artifacts/ce07-profile/ce07-*/semantic-matrix.json
-            artifacts/ce07-profile/ce07-*/receipt.sanitized.json
+            artifacts/ce07-profile/${{ env.CE07_PROFILE_RUN_ID }}/admission.sanitized.json
+            artifacts/ce07-profile/${{ env.CE07_PROFILE_RUN_ID }}/resource.sanitized.json
+            artifacts/ce07-profile/${{ env.CE07_PROFILE_RUN_ID }}/semantic-matrix.json
+            artifacts/ce07-profile/${{ env.CE07_PROFILE_RUN_ID }}/receipt.sanitized.json
           if-no-files-found: error
   aggregate:
     if: startsWith(github.ref, 'refs/tags/v') || inputs.verify_release == true

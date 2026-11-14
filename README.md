@@ -26,6 +26,8 @@ The newer source harness adds an opt-in [mixed semantic-tuple matrix](docs/SEMAN
 
 Use the fixed project07 launcher and admitted identities/limits in the guide. Do not duplicate the baseline run or rebuild an old matrix input. Source CI retains the isolated SDK10.0.403/runtime10.0.14 reproduction boundary; its non-promoted packages are distinct from frozen runtime inputs.
 
+Ordinary PR/main validation uses no artifact/cache uploads: the complete declared native/common and applicable Linux proof set is recoverable from bounded `CE07_PUBLIC_PROOF_V1` job-log records, with only a small summary index. Proof artifacts retain the existing tag/dispatch gate. [Transport bounds and independent recovery](docs/SEMANTIC-MATRIX.md#proof-transport-on-ordinary-source-validation) preserve all checks; account quota is UNKNOWN and source/CI execution still requires its separate approval.
+
 ## Connection ownership correction
 
 This version closes a newly allocated connection if opening fails or is cancelled. [Read the ownership decision, executable counterexamples and evidence limits](docs/CONNECTION-OWNERSHIP.md).
