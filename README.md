@@ -26,7 +26,7 @@ The newer source harness adds an opt-in [mixed semantic-tuple matrix](docs/SEMAN
 
 Use the fixed project07 launcher and admitted identities/limits in the guide. Do not duplicate the baseline run or rebuild an old matrix input. Source CI retains the isolated SDK10.0.403/runtime10.0.14 reproduction boundary; its non-promoted packages are distinct from frozen runtime inputs.
 
-Ordinary PR/main validation uses no artifact/cache uploads: the complete declared native/common and applicable Linux proof set is recoverable from bounded `CE07_PUBLIC_PROOF_V1` job-log records, with only a small summary index. Proof artifacts retain the existing tag/dispatch gate. [Transport bounds and independent recovery](docs/SEMANTIC-MATRIX.md#proof-transport-on-ordinary-source-validation) preserve all checks; account quota is UNKNOWN and source/CI execution still requires its separate approval.
+Ordinary PR/main validation uses no artifact/cache uploads. The workflow validates the complete declared proof set against a recursive closed JSON/XML contract before emitting unchanged bytes as bounded CE07_PUBLIC_PROOF_V2 job-log records. Both endpoints bind repository/run/attempt/job/source/OS/RID and the completed Linux profile; the summary is only an escaped index. Recorded repository log retention is 90 days, separate from artifact retention. [Transport bounds and independent recovery](docs/SEMANTIC-MATRIX.md#proof-transport-on-ordinary-source-validation) define the exact set, content limits and authenticated recovery route. Source/CI execution and actual hosted retrieval remain separately gated; account quota is UNKNOWN.
 
 ## Connection ownership correction
 

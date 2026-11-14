@@ -140,166 +140,180 @@ jobs:
           path: artifacts/delivery/*
           if-no-files-found: error
       - name: Transport complete bounded public proof in job logs
-        shell: pwsh
+        shell: python
         run: |
-          $ErrorActionPreference = 'Stop'
-          $marker = 'CE07_PUBLIC_PROOF_V1'
-          $root = [IO.Path]::GetFullPath($env:GITHUB_WORKSPACE)
-          $osName = $env:RUNNER_OS
-          if ($osName -notin @('Linux','Windows') -or $env:GITHUB_SHA -notmatch '^[0-9a-f]{40}$') { throw 'Known OS and exact source SHA required' }
-          $rid = if ($osName -eq 'Linux') { 'linux-x64' } else { 'win-x64' }
-          function Hash-Bytes([byte[]]$value) { return [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($value)).ToLowerInvariant() }
-          function Need($ok, [string]$cause) { if (-not $ok) { throw $cause } }
-          function Same-Keys($value, [string[]]$wanted) {
-            Need (@(Compare-Object @($value.Keys | Sort-Object) @($wanted | Sort-Object)).Count -eq 0) 'Unexpected proof schema fields'
-          }
-          $common = @(
-            @('unit.xml','artifacts/unit.xml','xml'),
-            @('package-checks.json','artifacts/package-checks.json','package'),
-            @('dependency-advisories.json','artifacts/dependency-advisories.json','audit'),
-            @('notices-tests/receipt.json','artifacts/notices-tests/receipt.json','tests'),
-            @('verifier-tests/receipt.json','artifacts/verifier-tests/receipt.json','tests'),
-            @('build/archive.json','artifacts/build/archive.json','archive'),
-            @('build/toolchain-check.json','artifacts/build/toolchain-check.json','toolchain'),
-            @('build/contract-checks/receipt.json','artifacts/build/contract-checks/receipt.json','contracts')
-          )
-          $linux = @(
-            @('integration/receipt.json','artifacts/integration/receipt.json','integration'),
-            @('admission.sanitized.json','','admission'),
-            @('resource.sanitized.json','','resources'),
-            @('semantic-matrix.json','','matrix'),
-            @('receipt.sanitized.json','','summary')
-          )
-          if ($osName -eq 'Linux') {
-            Need ($env:CE07_PROFILE_RUN_ID -cmatch '^ce07-[0-9a-f]{32}$') 'Exact completed Linux run identity required'
-            for ($i=1; $i -lt $linux.Count; $i++) { $linux[$i][1] = 'artifacts/ce07-profile/' + $env:CE07_PROFILE_RUN_ID + '/' + $linux[$i][0] }
-          }
-          $rows = [Collections.Generic.List[object]]::new()
-          $rawTotal = 0L
-          $sanitizedTotal = 0L
-          foreach ($entry in @($common) + @($linux)) {
-            $applicable = $entry[2] -notin @('integration','admission','resources','matrix','summary') -or $osName -eq 'Linux'
-            if (-not $applicable) {
-              $rows.Add([ordered]@{name=$entry[0];applicable=$false;reason='Linux-only profile';length=0;sha256=$null;chunks=0})
-              continue
-            }
-            $path = [IO.Path]::GetFullPath((Join-Path $root $entry[1]))
-            Need ($path.StartsWith($root + [IO.Path]::DirectorySeparatorChar,[StringComparison]::Ordinal)) 'Proof path escaped workspace'
-            $info = Get-Item -LiteralPath $path -ErrorAction Stop
-            Need (-not $info.PSIsContainer -and -not ($info.Attributes -band [IO.FileAttributes]::ReparsePoint) -and $info.Length -gt 0 -and $info.Length -le 8388608) 'Nonempty regular bounded applicable proof required'
-            # Refuse linked parent paths as well; never walk or glob private trees.
-            $parent = $info.Directory
-            while ($null -ne $parent -and $parent.FullName -ne $root) {
-              Need (-not ($parent.Attributes -band [IO.FileAttributes]::ReparsePoint)) 'Linked proof parent not admitted'
-              $parent = $parent.Parent
-            }
-            $rawTotal += $info.Length
-            Need ($rawTotal -le 8388608) 'Full public proof raw cap8MiB'
-            if ($entry[2] -in @('admission','resources','matrix','summary')) {
-              Need ($info.Length -le 262144) 'Sanitized receipt cap256KiB'
-              $sanitizedTotal += $info.Length
-              Need ($sanitizedTotal -le 1048576) 'Four sanitized receipts cap1MiB'
-            }
-            $bytes = [IO.File]::ReadAllBytes($path)
-            Need ($bytes.Length -eq $info.Length) 'Proof changed while reading'
-            $data = $null
-            if ($entry[2] -eq 'xml') {
-              $settings = [Xml.XmlReaderSettings]::new()
-              $settings.DtdProcessing = [Xml.DtdProcessing]::Prohibit
-              $settings.XmlResolver = $null
-              $reader = [Xml.XmlReader]::Create([IO.MemoryStream]::new($bytes),$settings)
-              try {
-                $doc = [Xml.XmlDocument]::new(); $doc.XmlResolver = $null; $doc.Load($reader)
-                $assemblies = @($doc.SelectNodes('//assembly'))
-                Need ($assemblies.Count -gt 0) 'No native unit assemblies'
-                foreach ($assembly in $assemblies) {
-                  Need ($assembly.HasAttribute('failed') -and $assembly.HasAttribute('errors') -and $assembly.HasAttribute('total') -and [int]$assembly.failed -eq 0 -and [int]$assembly.errors -eq 0 -and [int]$assembly.total -gt 0) 'Native unit failure/unobserved totals'
-                }
-              } finally { $reader.Dispose() }
-            } else {
-              $data = [Text.UTF8Encoding]::new($false,$true).GetString($bytes) | ConvertFrom-Json -AsHashtable -Depth 100
-              Need ($data -is [Collections.IDictionary]) 'Object proof required'
-              switch ($entry[2]) {
-                'audit' { Need ($data.status -ceq 'NO_KNOWN_ADVISORIES_REPORTED' -and @($data.reports).Count -gt 0) 'Advisory proof failed' }
-                'archive' { Need ($data.status -ceq 'PACKAGED_NOT_RUNTIME_PROOF' -and $data.sourceCommit -ceq $env:GITHUB_SHA -and $data.rid -ceq $rid -and $data.localCandidate -eq $false) 'Exact non-promoted native archive proof required' }
-                'package' { Need ($data.status -ceq 'PASS' -and $data.sourceCommit -ceq $env:GITHUB_SHA -and $data.rid -ceq $rid) 'Exact native package proof failed' }
-                'tests' { Need ($data.status -ceq 'PASS' -and $data.run -gt 0 -and $data.failures -eq 0 -and $data.errors -eq 0) 'Notices/verifier proof failed' }
-                'toolchain' { Need ($data.status -ceq 'PASS' -and $data.grpcTools -ceq '2.85.0' -and $data.actualProtoc -ceq 'libprotoc 35.1' -and $data.googleProtobuf -ceq '3.36.2') 'Pinned compiler/runtime proof failed' }
-                'contracts' { Need ($data.status -ceq 'PASS' -and $data.bufVersion -ceq '1.75.0' -and $data.policy -ceq 'FILE' -and @($data.checks).Count -eq 4 -and $data.descriptors.v1 -cmatch '^[0-9a-f]{64}$' -and $data.descriptors.v2 -cmatch '^[0-9a-f]{64}$') 'Buf FILE proof failed' }
-                'integration' {
-                  Same-Keys $data @('status','clientOs','caseCount','cases','effectCount','total','finalStage','legacyInputGuard','immutableApplicationFiles','normalUnknownResolutionAttempts','durationSeconds')
-                  Need ($data.status -ceq 'PASS' -and $data.clientOs -ceq 'Linux' -and $data.caseCount -eq 15 -and @($data.cases).Count -eq 15 -and $data.effectCount -eq 52 -and $data.total -eq 3556 -and $data.finalStage -eq 2) 'Full inherited+matrix integration proof failed'
-                  Need (@($data.legacyInputGuard.observations).Count -eq 4 -and @($data.legacyInputGuard.rejectedIds).Count -eq 1 -and $data.legacyInputGuard.rejectedIds[0] -ceq 'writer-1-guard-probe' -and $data.legacyInputGuard.originalFillTriggerPresent -eq $true) 'Legacy writer proof missing'
-                }
-                'admission' { Need ($data.schema -ceq 'contract-evolution/admission/v1' -and $data.status -ceq 'ADMITTED' -and $data.fingerprint -ceq 'SHA256:AgU5bZlJSjUu0KsWMmVEEr+BfXpcMVNroTA33bHcQdU' -and $data.archiveSha256 -ceq '41d0eb07766a45ec0c3e4e93e092ec63b73a2478b0c89e8c79c1773eee0035cd') 'Frozen runtime admission failed' }
-                'resources' {
-                  Need ($data.schema -ceq 'contract-evolution/resources/v1' -and $data.status -ceq 'OBSERVED_EFFECTIVE_CAPS_AND_TERMINAL' -and $data.terminalUnit -eq $true -and $data.cgroupEmpty -eq $true) 'Terminal resource proof failed'
-                  Need ($data.effectiveCaps.cpuQuotaPercent -eq 200 -and $data.effectiveCaps.memoryMaxBytes -eq 4294967296 -and $data.effectiveCaps.memorySwapMaxBytes -eq 0 -and $data.effectiveCaps.tasksMax -eq 128 -and $data.effectiveCaps.runtimeMaxSeconds -gt 0 -and $data.effectiveCaps.runtimeMaxSeconds -le 900) 'Effective kernel caps differ'
-                  Need (($null -eq $data.peakTasks -or $data.peakTasks -le 128) -and ($null -eq $data.peakMemoryBytes -or $data.peakMemoryBytes -le 4294967296)) 'Observed resource ceiling exceeded'
-                }
-                'matrix' {
-                  Need ($data.schema -ceq 'contract-evolution/semantic-matrix/v1' -and $data.status -ceq 'PASS' -and @($data.cases).Count -eq 8 -and $data.caseCounts.frames -eq 8 -and $data.caseCounts.parserObservations -eq 16 -and $data.caseCounts.rpcCalls -eq 16) 'Exact semantic matrix observations missing'
-                  $literal = [ordered]@{'tuple-111'='APPLIED,REPLAY';'tuple-112'='DENIED,DENIED';'tuple-121'='DENIED,DENIED';'tuple-122'='DENIED,DENIED';'tuple-211'='DENIED,DENIED';'tuple-212'='DENIED,DENIED';'tuple-221'='DENIED,DENIED';'tuple-222'='DENIED,APPLIED'}
-                  Need (@(Compare-Object @($data.cases.id | Sort-Object) @($literal.Keys | Sort-Object)).Count -eq 0) 'Exact literal case set differs'
-                  foreach ($case in $data.cases) {
-                    Need (@($case.parsers).Count -eq 2 -and @($case.consumerResults).Count -eq 2 -and ($case.consumerResults.status -join ',') -ceq $literal[$case.id]) 'Literal parser/semantic outcome proof differs'
-                    for ($n=0; $n -lt 2; $n++) {
-                      $p = $case.parsers[$n]
-                      Need ($p.producerVersion -eq $n+1 -and $p.exit -eq 0 -and $p.id -ceq $case.id -and $p.amount -ceq '2000') 'Actual parser proof differs'
-                      Need ($p.semantic -eq $case.tuple[0] -and $p.capability -eq $case.tuple[1] -and $p.unit -eq $case.tuple[2]) 'Tuple parser values differ'
-                      Need (($n -eq 0 -and $null -eq $p.confirmed) -or ($n -eq 1 -and $p.confirmed -eq $true)) 'Confirmation presence proof differs'
-                      if ($case.consumerResults[$n].status -ne 'APPLIED') {
-                        $sql = $case.sqlComparisons[$n]
-                        Need ($sql.comparison -ceq 'UNCHANGED' -and $sql.beforeSha256 -ceq $sql.afterSha256) 'Denial/replay SQL equality proof missing'
-                      }
-                    }
-                  }
-                  Same-Keys $data.binaryIdentityBefore @($data.binaryIdentityAfter.Keys)
-                  foreach ($name in $data.binaryIdentityBefore.Keys) { Need ($data.binaryIdentityBefore[$name] -ceq $data.binaryIdentityAfter[$name]) 'Immutable application hash differs' }
-                  Need ($data.rollback.status -ceq 'ROLLBACK_BLOCKED' -and $data.rollback.exit -eq 0 -and $data.rollback.sqlUnchanged -eq $true -and $data.rollback.stageBefore -eq 2 -and $data.rollback.stageAfter -eq 2 -and $data.rollback.beforeSha256 -ceq $data.rollback.afterSha256) 'Explicit logical blocked rollback missing'
-                }
-                'summary' { Need ($data.schema -ceq 'contract-evolution/profile-summary/v1' -and $data.status -ceq 'PASS' -and $data.caseCount -eq 15 -and $data.effectCount -eq 52 -and $data.total -eq 3556 -and $data.finalStage -eq 2 -and $data.rollbackStatus -ceq 'ROLLBACK_BLOCKED') 'Final profile conservation proof failed' }
-              }
-              if ($entry[2] -in @('admission','matrix','summary')) {
-                Need ($data.projectId -ceq '07' -and $data.runId -ceq $env:CE07_PROFILE_RUN_ID -and $data.harnessCommit -ceq $env:GITHUB_SHA -and $data.runtimeCommit -ceq 'ce9c2916e591dbe647e50d0990c4af4ba4a2ae88') 'Exact source/runtime/run identity differs'
-              }
-            }
-            $rows.Add([ordered]@{name=$entry[0];applicable=$true;length=$bytes.Length;sha256=(Hash-Bytes $bytes);bytes=$bytes;data=$data;chunks=0})
-          }
-          if ($osName -eq 'Linux') {
-            $byName = @{}; foreach ($row in $rows) { $byName[$row.name]=$row }
-            $s = $byName['receipt.sanitized.json'].data
-            Need ($s.inputReceiptSha256 -ceq $byName['admission.sanitized.json'].sha256 -and $s.resourceReceiptSha256 -ceq $byName['resource.sanitized.json'].sha256 -and $s.matrixReceiptSha256 -ceq $byName['semantic-matrix.json'].sha256) 'Cross-receipt identity differs'
-            $harness = Hash-Bytes ([IO.File]::ReadAllBytes((Join-Path $root 'tools/integration.py')))
-            $profile = Hash-Bytes ([IO.File]::ReadAllBytes((Join-Path $root 'tools/semantic-profile.inputs.json')))
-            Need ($byName['admission.sanitized.json'].data.harnessSha256 -ceq $harness -and $byName['semantic-matrix.json'].data.harnessSha256 -ceq $harness -and $s.profileSha256 -ceq $profile -and $byName['admission.sanitized.json'].data.profileSha256 -ceq $profile -and $byName['semantic-matrix.json'].data.profileSha256 -ceq $profile) 'Current source/profile blob identity differs'
-          }
-          $lines = [Collections.Generic.List[string]]::new()
-          $index = [Collections.Generic.List[object]]::new()
-          function Frame($record) { $lines.Add($marker + ' ' + ($record | ConvertTo-Json -Compress -Depth 16)) }
-          Frame ([ordered]@{record='begin';os=$osName;rid=$rid;sourceCommit=$env:GITHUB_SHA;entries=$rows.Count;rawBytes=$rawTotal})
-          foreach ($row in $rows) {
-            if (-not $row.applicable) {
-              Frame ([ordered]@{record='inapplicable';name=$row.name;reason=$row.reason})
-              $index.Add([ordered]@{name=$row.name;applicable=$false;reason=$row.reason})
-              continue
-            }
-            $encoded = [Convert]::ToBase64String($row.bytes)
-            $chunks = [int][Math]::Ceiling($encoded.Length / 8192.0)
-            Frame ([ordered]@{record='file';name=$row.name;length=$row.length;sha256=$row.sha256;chunks=$chunks})
-            for ($offset=0; $offset -lt $encoded.Length; $offset+=8192) {
-              Frame ([ordered]@{record='chunk';name=$row.name;index=[int]($offset/8192);data=$encoded.Substring($offset,[Math]::Min(8192,$encoded.Length-$offset))})
-            }
-            $index.Add([ordered]@{name=$row.name;applicable=$true;length=$row.length;sha256=$row.sha256;chunks=$chunks})
-          }
-          Frame ([ordered]@{record='end';os=$osName;sourceCommit=$env:GITHUB_SHA;entries=$rows.Count;files=@($rows | Where-Object {$_.applicable}).Count;rawBytes=$rawTotal})
-          $encodedTotal = 0L; foreach ($line in $lines) { $encodedTotal += [Text.Encoding]::UTF8.GetByteCount($line)+2 }
-          Need ($encodedTotal -le 12582912) 'Encoded framed proof log cap12MiB'
-          $indexJson = [ordered]@{protocol=$marker;os=$osName;sourceCommit=$env:GITHUB_SHA;rawBytes=$rawTotal;encodedBytes=$encodedTotal;files=$index} | ConvertTo-Json -Depth 12
-          $summary = '<pre>' + [Net.WebUtility]::HtmlEncode($indexJson) + '</pre>' + [Environment]::NewLine
-          Need ([Text.Encoding]::UTF8.GetByteCount($summary) -le 16384) 'Summary index cap16KiB'
-          [IO.File]::WriteAllText($env:GITHUB_STEP_SUMMARY,$summary,[Text.UTF8Encoding]::new($false))
-          foreach ($line in $lines) { [Console]::WriteLine($line) }
+          """INACTIVE project07 full-byte formatter/decoder; standard-library only.
+          No product execution/network. Embed this plus closed-contract.json literal in a future
+          reviewed workflow; active workflow remains frozen. Errors never include payload values.
+          """
+          import base64,hashlib,html,json,math,os,re,stat,sys,xml.etree.ElementTree as ET
+          from collections import Counter
+          from pathlib import Path
+          from xml.parsers import expat
+          import lzma
+          CONTRACT=json.loads(lzma.decompress(base64.b85decode('{Wp48S^xk9=GL@E0stWa761SMbT8$j;kjEJXk7q3h>1sY_$s;~BpYAPr%A|yAVWf`<N9F#FBo@PmdF+`Y+x7WT>Y$Z!}Nj3JD3Psl38yV0tZ-+8)ONKXbJLUFq5I`qnQTwQb%A8`2hAnpwYWt&ruxz6?H%+Brs(K=Je91^KA-GosT>dv%$4y4w?1yhWw1go_<HJyEJU+P)W1^lV}Z@UJcjC`5aWS!M<q|zBi{gN8f`sg<NbMu&j52Gmt^lQ;sxQGYCa&S>${~Zv@uIPzj|>$WJ+WjKJd-X27msxrCxn>q1!|QQX@Zp8SNC4oZysHvVhGb@n5@q!uRm9FXe2XK>sG$>L-LEj7Kf(Mh7ffw3ZSUB)L8hw=>EPux&!Iq%KMB9-j(6ihb5=ZOoes}LqD8H?gY0>q#eAZrPvkhCuqg$(*9u_48ow}1RKsaP?z048mz`dPm$704LMTBK=f#e9vPVfNciMIy_(zoIOwr!d0ve@?j$abH|3LANOy0-)6?9ki0i7K@90cfuFwv;K-v9?*Daq4d&R0CWH$;GL4YoA$kHh5H-{H+<-A-zn<J4iGOoG1Yu3f8`M&`7EWx-;Z}MHEE=%rj1jFTTZb(LatfdT|iXu9$jz)AXFg&uTTtuH3kFKdY>oiJv-m><=+Mcd`^?KE<|EH%P7B^ktgp0%FKDmTtmOO4qwV=l9(xUBL|y_-{#U~2b17F7w2@l7u5lVw1B8<I0_$hre4E^lR?_Jx(sbs!K&~3A<j%1)Tt-lDIIqqyp)RCdT9B)t@C3-?r7Uy+$Xrbh3d@w#Tj+&rb4*D>QA{oKKF$#1<-Q*U8dFAI)gci=<*gw((tec@4Tm%kFiW^BLV8wDa{WGPdBD~E+h2XtbX@^lsJviaJ{emjl{Onfc+q9R-(emc5nFfC9#2OkQAY@L&p3>(PmnqC)NJT5gb332tnrI%`JuQ*6Eu8W?Ary!XcJ<Il|LaDCqqnX6Jf%?;h93gUp<K2hx{w`uVAR?^%AUaatW6%dpNF389;L4r<)c0xm9#YV*q^%9~Aa<4D-pAe|r_?>!}Q0fCfK6pe}k-0-|+6b)@MjY~nBm`+Zn^R0l^+{WsoVSWX+{318at_8G$cbrhj+`;C5jTOj+f$~X-UU2GiJPlf;7}3Cbp^cy~h-^e_Ya?5A9sac!q%Rx(GY0ZIf#ES{#U+e%q(E3AbHsCWau8|h!_9gB|Fw{vbm~7KZ-Io7a&2WKCl98D;-m+@sQJEugvhBiwanA%k}LtzVoB+L;!_$~8dGBB!P5)3!Fq8S@M26YsVTSr^8AsB|4_G0m05f8K-6R3kMSL(n&zICaI;VZcl!~)-y(x8SrT7WZ(exIG|o#nl79~3iP<QU<}h9+c??T>68-!XaN_IGrGb6}#U4a7itNLF86h;-<Uk<_X*55A9)H|bea*e~N@BnesV!|YL#mEnqP#XZ_F<G60b1W+EmcP93XMX(jt|-wjdX>9ckf@?`AAFh=lWU5D+D^Fbb*ZB6hv`N-|E__uW(Mm#0)-1Krj~`IQ`pe&kuL>{wwc8v5Y?ihV*l0@we}Spmd8KFpx#+4J`X#0K=pev!k(288ykI2HMG9bo5d%Jk}^d&%iioBcYU7W!5Oa5fER5r(OknHbw!=35*AHS4!AE<^3Y}zfHetjc5pFug_AfB$9Qv)$8YWM2>&(_O#F{Cu3D<3E(`Qw4&bt<u$ds(|ZdgR3O;aCu(fLVs=+I5?HSFK32Q~iSOK0F^4?d)cCI07;ZIVJ}!t2i;WFY0d;s?ua}Vj!i*A0-q|WHCxVyklX25m)uu#J<HSdm#2%c7hU9{gL%YPv(m$QYT}Q;4L6G#qRAh4&N>rXlZ{6BLN9i)Dt{h+`A9s3gEksW%t#m@&(!n3^3#R+>7j=3=S$hcDX9Ub+qr6$(*Xz?rzx4afin_D2^ErzsLy7y~C}Cn)fEokfhKL2Q6UvR?YjHSNH$ZOkyt39+X45Vw<P!R8eyAU}>^F#6UQwgf)dA~QA`JE!QTwI%Bx!nvjr93^LY+QVtNhqhm$uQ>B|oN{6(IiZPcf7>QWok1#lTI=<37kW;h(43+H3GPgN+lyv1umEB3ObhaJ=l>?nks844>U8f^uAk)n;#IMvc0$7fu!h2tws_u5%tQdcv#&<BgNlq7@9G+NODEb40Vna1}Az>`G~kAm8D(kOZGrq9H!kXf73o7^;UWf$-OiJ#|K8hL(Y5A;l9;gzY=MeS$!%UZ0kW0KsSTq@V;19AP@=k?~d0_$k27p4RdY_$SkRHyDueNiByi<30mTdCHfz)kyryLDAc9lGP#)1CmW*6b8%fnOGrrv;Gn4nw8**Fn;bwN{OezG@pGID{h(sd;<q6211Qoj@$6|s|_=phX1|2Bnh6HzP%@9zof~XuMQP#Ty}cpR%H3DZ54XmWo5Z?MIao=WaCE`V4KVKCOJ%0YUX_fR--MNL~oBs(FmhDMn*V4+{fg>f^mT!c_Dn)8h7c1_J{$$bhfg#6t=a>C^P(*bfbFQr0A7^@~0tB$f(6`zKuzm5~v9}2t9)Ln0J+h@D;;doJVBE^f~Epz=+k6hhUCc@$w}={U%4!V6i>QktxJ>!@3Yc_uLmDbHY23g}!o5%Db|DLeO-L$l}_qYH1k1wwKgy4@2WyW1EgN1)Y9LN+=QasP0QnyoE31On8<<fcZ{6k#zkfI~$2V%I?{V!+@&6g*jDj^|7{<%iY95`RQ+x@Gdb3=)%8POtJ!WzAn=T)|t@MK71$rr;N`UfE5b3Ad9-@9{gR1P?Es5m!42KAd$ft*@*A6k0Wl^Xv2eXpW({|?m$tXiud_RGL&%UjDw;tq}zYcFiMwuE(;ZIa#5EVR>hF|$7(fuCE7RR+W#{%`OQy!MRtf8qMUU*$Bwow8<l*v=Rq8%ua+GLjIjccj*AuSMSV&D8E7kkd&`Hie!>FbN!A943{qx1cSZVwNnMqDq&7eM=Y@`d>%{SjSF*a!mzG5ewdJ2g)vD9aflynVNjFuEw5Pq7-fCz*pM;gi0o>oYUo&fu^Ic33PO{G`SMshqH@+VMxBBd9YG7GClK1%1ep6m%_LaKyZ_{3fbyXjttzC^C!&1-#C+Ln2mM86j(;WvsAvYN5PJZe)Fl-ZB&tTaza*2^35$RwuEK0BR63gJG_p42s*9Su5Q`W5wekW(sS-L(Chh3mgEc-_gXNkE7kkD4P;?%TVU7$!1GWjOVJBh>!k5w;a<*eyg=<fwiRC?ZW%4TebIXbLR<XvE9;KZ6-Ed!<hwWBX#uZD$vtS{q1rS&g538^CK(r@J-yl@e^!d6(>ic3|YvF8m?(K++H)YOBb{mG`uN#5zRLogp!I%nNA+ZpvQx-PIMJAsH?4&9g3p(nI$C8-#-Vm7I|*ej3oa2DtPLSOkgUfo1@%+q>Vy#gk5oHYySL5}Xb2`kp7hWgu-5zF|N5t&0<LHt{=p$?ify)!}}LiWW4aq8*5Wn8TRo%?90#k&oX3(k4B6{GkL<~t&jiQhP@ay7`)?-!`a-gX{I5{``@9mkPa`k5k#cL7T%q~oHa@>;5E+Etz*VB2y+!clV2TPX;mM&)c%-cfFS`vD%QT9=#1Bvu%l*Z$oDWo&BYl_O2rBouI{hopMnyM)0=o08}@z)AK~)5lTV1rb?i4qw|68rQja;awB;<P`j=5!Xd*HV$smwk4j)(`?&zB+XAs^5>AjS{>Oi4vD)BpN<xgvIBbpQY-Snk2kOhoKvzT4+}D#dLtlRQ4V|b9g^XVh}p@hO4c)S1`42{^kRF5y)RmU=jk6{gNHxp`suW7@G1DYl&4pz6^_HlqfSCo3bfc_o+?~`VlSI{jOfjDin#KG%ZM)ggb$`j&yK&R9Ff+#a^&qT?1f?gxwcdlLYHGL`AU24ZVb@nHBx-j5@1>$OvK_?0WD*4M?5(gR`sCjK>>q54sXSjtuzB^mi$KbQ55=gHm=M?A34#DQP$#nX^d!%jg~A&0z#0F2XF)#JEn&G&LwB=K#WRWH$8Mya;aRlB4!OSt~2s@0~+zI#WPcPC$wbup&%+8V_}j;AA5p2RfNdfJpg=PQ-iIu&6I}!oZ0pC+>wnc9Dot0Xrr=r`GaclhP%5Xuv1&LgI^CzykmYlVD8y)faatTDIv)$o^#8(MgKP)cUC)4OD8EdUyY5rM~WjTF=okqVUia?yIZqg`6il3q<-rb)N6vpoXOjAuzGl;hPhIa#~FkNnPT7uZg*kUevs$0+`eJ;?24Xu3k`RbuBYUUXz(y>i4Eb_wW6j96y7RXxooJ;+!VZ@^!fsbz#3CF2=^IKNg>lUP|sAkrI}hx%lDbJCM@x|2h0~exEkxD0%65*VJeeXLVNUrE#PhRr2!JOwGez+<`LFl?K!eJH@aLnk|<%H=fbs&rNye&nK+yLmw!Cs?DLa`P@_%Sk-FJ@fSX?%>qLNzzT96W!j>BT=s7i>zXqa`{@3r_F|~65?SHVzUh{iXJJQ)4uX-1hpLUHS!+^AOSu2(=sqcTtx1I|#y4jmu8IBAJ8f^7w{v@$v@2yo_J5oL!T^ttG?(;#({VGe7G;XKlkw3W0^f~8$K3Q4>okGeypza7#!PI%LwkQikl`%PdAyQw$It9LF$~M!4L)BwgxD`7ey8sqr;ygl9b~G_Q)HB0z<@>KL;iOz;A(~>Epp)BKk;_%Bcs0x~9=tA<MhiIWKVHe)1PySf?Y{31ERCl9?Y}iQ3&@M&$wyT0NK>}H1MN2lk!W`QPk^6&Sp|Yq6672bu#sTbis`B%Nu1qk4c@R1ScwI!RRHMyu8a25caHrZr$x}iS3LKofHQZP5*b?@W1rXHS^_(9kYU?w@yPah(d<;pv`FgRA+rDTF&JxZ6jBEMj-cPyMl;1UaDav2uf!M^d8#LBqtuSnr^5SEH<85FmdVWRb8=t_`RreQxa@@2vUu=3Dnknr#PK?My5U+R1R55Ag9PvVx&UWY6{}8nITW`TpS$DLvN5cZo|bkL{w6%}!VsUWZ#$#f`U|O~{;f%p4*QN`oZ9}I0az-PEBI@9?3|p1xQ+VhqcO0MX|NFVSW?WJt)j+Y+Fb+v5sgVnYMKJxuj7NEJnzlc#8Uj6rs~*`ygxJ#Kqis8HyTde$m5LZzS-Bgp=RA)=%1!h2t#2!Cs>pvkGpAIHr^~cPMPfEEdN0@9KuyITdWEE5hUa4uHdCDgo_#>de!{UAh+TDD-dcpQ_PtaB^R8wPyi#a(oDtWP49BP|G#@Ot0xLMV}8i0=pw_d4LD6FI#-kfwdFRfC!Vw!zMmHx3@ployPg!Af_qCCJJ``;?A)H*4lJgZf2HQKeKmX;Z`g^$;e;a;t-5w_o6j^&oU!!OcL&3-(><}zmGkZc21~u4HTC>O_uUEg(M=xxVmwNEs^d*!XKtdt^zc@+9OE9SJ^9ziBrvBJ<Z!-GgM<<9#5`9WXcTWLSK+p{5<oK1WEn@)(rfr>uTHEsvlJJQoc};wr~M7^7SNwI`-q=5pE8+ns`n0*fsTuV;jK*g49%z>XGEs6mvt`d9@aQb(kup0Z+`&lzv^nj*@PG$XoB?muGB+QwTH+TunuKz^@{!+66DLWjzT|JT=iaVeUIukoi;{LDXT78L0CUZIn!8wu#j2$uzBxxEsUGBpkEp=D3y(b?yt>4@Fs1s_$_F%P%3y+I6T?d#EPIRwr{iX>}1ONuNk75vcefvhZ?!NLf`2>!nGVn0tkSesEea{9J9J>1@P;E=CDaGMYy-{-$AQB-!TNa>4^p%Jl_}p#bTKw<Md9tKPsn|X<jBlfa^ml#Y3v3#*EtkA+ikwKP{2Yf1<%qy`pNnJ#C{XOxJlKPPny=(t!)9A5OPD9eU&tbH(!>&OQk4s*%6rj0cXX&-Q@1JI$o;7$(0FK_>`xtl=g6<sO49HeSnit<k#Y89$|j3GYuuJ)fkH#+Z|8ZGAq%6n7@wqSj+pbJK_`mzx1W%_<@DHdYYEn_&TkZ#~chCKx1!w2_uqij(@l0^tc%naIqO@^LmPSZlc2DY6EJoYLi{9ue0)2-04$FW23q9|9__hN7pUSxHAEQy+vQBg$hj)xbVw!R21+IR^5(UIAuSR}2hdOrk`YhZ3q3Z{>eNDB4^0^iX_g6%Y^BV%_xr3f*%eQhavN*fNYOzKa7Py}|DZXOM{mrILyAqC)1JnTneCBL4+5%BuwS8pE}^s|oY(j^D7rr8(~8C=f{xdR>IC_FZka(^1{J$eA!x({N2d;+@+g&SdS;cX1YaUfl>(^1SA#TlX_IV$L~m)pxcKgfLApoff`gpZ@qm4^ExDX}D{p+Gu3hLGz&=x#goaSuYoggugT%bJg|XY*!>*EL`8-GWPg}9v;KH0hSK(D1&g!jT1GGfE5qNj$v@!f2>Bce}wzU&V_IJ2+P_}wAMqGIrDZaLSo<$6aGPl|LeOK>hx#ajH?9#0}ZPj-&>F5y>yGF5lg^nH>~H~g^TYrHH&!q_*d2jDls6JX)7+5F3TEyE^x3h4;MDQs`qRQT?`DPo+JSKn*d|eaQne7LeTtOxo;DG-A8~IZ#<fgCQWCvk>RT<uI8sB1kQW|<?X^w234gwPk^~W6I$|2)kBcD-SaZ2&nUA*aTTU30B^^wHq`!TO4S`=Hj4SHJ3)vvZwDe2@^Aan(9ryF4)F8kH<WF+F1k1UD>t?t^H|$BRHSPiVyO$zI5BGadTIV(P8O%KlwMoKOW0gxk~>QvXKll9rN7%`4L5M^aM#NYB5I|Gr0^b-6BE+>NI*Db$sp`0zC0OuXb+J<3y~Tf+ab#enqH=~K=7KY{eArKUbug!vdfA1L8I%Pk-8TO%D7V-`UqiFDPXZG1+@uz9U+#~Gkj)%-`k{n(5Nj}cet5o-0J^IEwfgz0~LA-tXeP0=ED0)cD;ce(Cq4taNxkv?%=tPge<KV3_tljmw0M(E7HtB(c%4kv$P#@7PX7pDzNyljpvi}r@$hA6ye3RUn=li`w8|~$LOA4VT`@l;$o;PS#Tz@?ff6c`P<OMl7Yl?_7*vJ?K0BgkC9Fy(&6G%ZjhHat%NGGds>~e7Z2(&jF_m_4^2|hyQHlt45)$r1PeY_2fA=0eLHcKOD`)&>wK`lWCx%wR%%Q+*x-H`$moHj;1bwQ4X8H_QR708{l2^fIKzw$23r{Koe%*<Bo^>5Z?gx*zVO%q?wU(#Rqw9Fyd~e*BSmktTUMvF<BzqDI87Wi7w2o+T^(veKazT<A9d>~l#s_!L;FR>A<ECFBl+02l45>e0U+_!9MH}M0SHlGLC;YS*<?dy^m1t@OOe-d&q9#I-XbcUY*z*=0L+Bk!sa2y;Aa?NHqv35MgS0BJWFNGq&9g+yn!o+F#=%AY@ryLWidA1Ow$X5R9$)<4}9psJ|<G+2f%j7?{Bapqg_o)(%W>;ios(G??ZpZ{P-oG0NhldT#nDY4CFAI4Z<DVLvwng(u?57#i_+6W8pFZ_&>*9{S|$Abv620%|Zgy*m9j2*7lrb<m2&tWIU{(Ju7al&%y7NU*q~lw8P!VzRmR1M1P-z_VKHWUmyfw#)1Q}uBAzif92g(3FbrG!x>7PX$3U}HCN&St9ngty>OV+6$XA;iU;L#r#Uc8;dV>EKesnfJ(s|tzlRY?hH<aD!7eskjNs|Iq;@|5tC80^W|1W}1iKwD983Mlaw?%%V`*Io9o%O{&|vQBMxx5p--M?GFd;-l!oZU{>NsJ&pbV?CmXLr#G1tRv0Qi9g#xAqdc5HCHUK7m(Y*;gnxXpvvsF4kocN^3)#E)nPY-%daG5MY-sdCzBt%y4koBe5oSozC_&sK_<SbdJKWXTRIPz}f8^_`~rs3f8Y4|)4!--O2?-pWt$aAR7p_{bVG!E$Sa7Us9#F-j*Y2}P^ODLpF7p6#j%-v}n~yyE~iG2DprdTn+)GT%5*E!}esBrnZmCjoL}g<b*7e{_=64CG#+lHkc!BR911cm84DvN+FqlHEXz1Tq(b#B4_bQK>3HD0{nvEYz2O2KalYti*;_n0egc>$JdgwbwsqpjV;Hgo6G7o*zxXOQNfI^&JQj0#usoiL-YSpg&#WgkF}WRhcowY~gSU%H^t@m}JM2@QsV51%zVwtXt26dCWh<=u+ALhSd*`%>;J7lE86*GWcEdYE$!7-8$?pZofbHePg1+Gc2h*ZE(M!)@*TASzJo8I$@u1{5vHbyLy{%S#E^z+ZGj5-SlViz7n6_aSt>L?k$Fy&K-R8-!5%RS$2#?#$^i6KT*gU@${fFf@SQ>s0?4{xkF9v&jI7N*Q16^*ZEn&#9TGbd{Bs}+A&cpsMzFCh!bS_vz}K?A1RL?Htnj$Dt~d4K4*ewicwso$>1q&aHzSewZCzmp;sT+cRnUF9T289yg^fQ#h4YqeraKdwy9uBiB`!#`NHuJI(5N>NND}Zo!6)pBt-@f&xWSo4}kDUu%`i&<&sNx6gJg@h3*rNXx^)UOEMuPS{Qk_LW~OERH8W-M|SLREm+z6|EGdCB{Z@lja(JwL;=gGEo<(0BQoJ7P6$iTVJ?W!<RCCn&5z)DaAuKQ^Mtr3b3n&AA&S-xB1xv=YIj&N;EGOAJxE=Zqm|AJCB|Bh{O#T0n{`7VHXQS%wVyNqekh_8LI;g4>$;o*vH!+G5XFnWyLe`3gZ%Ke$uBHy#Us@GHmdk^3&hMsC<fomc-y;#ULbi#rk(Y=O*7lGzRFydkUc+fDAtgh$QV4NYI$&p(U6OkNhd>TYFI$;%{BALD1%G5-B-HtR5vS?*AR|Ao)|z=E!q8flOu>{C%;`VSm0`$OXR{xmr76z#57+CT|8F|;yJ6FXw@r#uo)jg1F!QDEdm_NUAm6z>L`814O?8tAoeq9wRxr`_~bzPlKS6S*zi<DL&5sA$p%g;xJ1aegDy=AqLr{#oz_DqA{J$H*f{W;Q^se<MaT0m>VWrJ(%JJ%-^~u2MyN=*pez7K_8v-D=!)YkAb%in?+G&PI({*jWU-}13r&v0C-MbHEkrq5HNk>-N0?tyntwE%-pV~0ql}w@S49BUL$WgO30f2X0q-q*J&se)%}XJZow#ex`%SLc`L<DHIpK4XLeJrD>Ypecbl&G#2xNF6YHQ!)%gckjNa^zAz(&>o$qj}6{xnuB+7vF&p(1o4vU{LeEgPb<VRlYQu<)!GBam9aYSY54;KSaoaOQMDYP2RF-A5dB94jrhWSyL>TJ!@-`XsBlZ{1WyJuH+;z!RUo!|S41l40s0QJ4nZ18$M6{|Y6sKy7#KfZ;ws%ZqUp%ZcT(1lM1;Y$Qo-?~m9$MJ<UAQ@b-Wk3__i@CYaa)VMZ6<VR%HAcBu$qF1eaMv1$FmJ|;FmKv6Ux$kRu00D$K-0}th{a)Q>vBYQl0ssI200dcD')))
+          MARKER="CE07_PUBLIC_PROOF_V2 "
+          COMMON=["unit.xml","package-checks.json","dependency-advisories.json","notices-tests/receipt.json","verifier-tests/receipt.json","build/archive.json","build/toolchain-check.json","build/contract-checks/receipt.json"]
+          LINUX=["integration/receipt.json","admission.sanitized.json","resource.sanitized.json","semantic-matrix.json","receipt.sanitized.json"]
+          NAMES=COMMON+LINUX
+          RAW=8388608;ENCODED=12582912;SUMMARY=16384;CHUNK=8192
+          REPO="pouriajamali/contract-evolution-lab"
+          def need(ok,message="Rejected public proof contract"):
+              if not ok:raise ValueError(message)
+          def sha(b):return hashlib.sha256(b).hexdigest()
+          def unique_pairs(pairs):
+              d={}
+              for k,v in pairs:
+                  need(k not in d,"Duplicate JSON property")
+                  d[k]=v
+              return d
+          def parse(b):
+              def constant(_):raise ValueError("Nonfinite JSON number")
+              return json.loads(b.decode("utf-8-sig"),object_pairs_hook=unique_pairs,parse_constant=constant)
+          def check(v,s,c):
+              if "literal" in s:need(type(v) is type(s["literal"]) and v==s["literal"])
+              elif "context" in s:need(type(v) is str and v==c[s["context"]])
+              elif "pattern" in s:need(type(v) is str and len(v)<=512 and re.fullmatch(s["pattern"],v,flags=re.ASCII) is not None)
+              elif "integer" in s:need(type(v) is int and s["integer"][0]<=v<=s["integer"][1])
+              elif "number" in s:need(type(v) in (int,float) and math.isfinite(v) and s["number"][0]<=v<=s["number"][1])
+              elif "numericText" in s:
+                  need(type(v) is str and re.fullmatch(r"[0-9]{1,3}(?:\.[0-9]{1,3})?",v) is not None)
+                  need(s["numericText"][0]<=float(v)<=s["numericText"][1])
+              elif "object" in s:
+                  need(type(v) is dict and set(v)==set(s["object"]),"Unknown/missing JSON or XML attribute")
+                  for k,t in s["object"].items():check(v[k],t,c)
+              elif "tuple" in s:
+                  need(type(v) is list and len(v)==len(s["tuple"]))
+                  for a,b in zip(v,s["tuple"]):check(a,b,c)
+              elif "array" in s:
+                  need(type(v) is list and s["count"][0]<=len(v)<=s["count"][1])
+                  for a in v:check(a,s["array"],c)
+                  if s.get("unique"):need(len(v)==len(set(v)))
+              else:raise ValueError("Invalid inactive contract rule")
+          def identity(c):
+              keys={"repository","runId","attempt","job","sourceCommit","os","rid","profileRun","unit","controlGroup"}
+              need(type(c) is dict and set(c)==keys)
+              need(c["repository"]==REPO and c["job"]=="verify")
+              for k in ("runId","attempt"):need(type(c[k]) is str and re.fullmatch("[1-9][0-9]{0,19}",c[k]) is not None)
+              need(type(c["sourceCommit"]) is str and re.fullmatch("[0-9a-f]{40}",c["sourceCommit"]) is not None)
+              need(c["os"] in ("Linux","Windows"))
+              need(c["rid"]==("linux-x64" if c["os"]=="Linux" else "win-x64"))
+              if c["os"]=="Linux":
+                  need(type(c["profileRun"]) is str and re.fullmatch("ce07-[0-9a-f]{32}",c["profileRun"]) is not None)
+                  need(c["unit"]=="contract-evolution-07-"+c["profileRun"][5:]+".service")
+                  need(c["controlGroup"]=="/system.slice/"+c["unit"])
+              else:need(c["profileRun"]==c["unit"]==c["controlGroup"]=="")
+              return c
+          def xml_check(b,c):
+              # Expat reports comments/PIs outside root too; ElementTree alone discards those.
+              p=expat.ParserCreate()
+              def reject(*_):raise ValueError("XML metadata/output not admitted")
+              p.CommentHandler=reject;p.ProcessingInstructionHandler=reject
+              p.XmlDeclHandler=lambda version,encoding,standalone: need(version=="1.0" and encoding in (None,"utf-8","UTF-8") and standalone==-1)
+              p.StartDoctypeDeclHandler=reject;p.EntityDeclHandler=reject;p.ExternalEntityRefHandler=reject
+              p.Parse(b,True)
+              root=ET.fromstring(b);rules=CONTRACT["xml"][c["os"]];seen=[]
+              def walk(e):
+                  key=e.tag if e.tag in ("assemblies","assembly") else e.attrib.get("name")
+                  need(key in rules)
+                  s=rules[key];need(e.tag==s["tag"])
+                  check(e.attrib,s["attributes"],c)
+                  need(not e.text or re.fullmatch("[ \t\r\n]*",e.text) is not None)
+                  need(not e.tail or re.fullmatch("[ \t\r\n]*",e.tail) is not None)
+                  children=[x.attrib.get("name",x.tag) for x in e]
+                  need(Counter(children)==Counter(s["children"]))
+                  seen.append(key)
+                  for x in e:walk(x)
+              need(root.tag=="assemblies");walk(root)
+              need(len(seen)==len(set(seen))==len(rules))
+          def validate_files(raw,c):
+              identity(c);app=COMMON+(LINUX if c["os"]=="Linux" else [])
+              need(set(raw)==set(app))
+              need(all(type(b) is bytes and 0<len(b)<=RAW for b in raw.values()))
+              need(sum(map(len,raw.values()))<=RAW)
+              if c["os"]=="Linux":
+                  need(all(len(raw[n])<=262144 for n in LINUX[1:]))
+                  need(sum(len(raw[n]) for n in LINUX[1:])<=1048576)
+              parsed={}
+              for n in app:
+                  if n=="unit.xml":xml_check(raw[n],c)
+                  else:
+                      parsed[n]=parse(raw[n]);check(parsed[n],CONTRACT["json"][c["os"]][n],c)
+              if c["os"]=="Linux":
+                  s=parsed["receipt.sanitized.json"];r=parsed["resource.sanitized.json"];m=parsed["semantic-matrix.json"];i=parsed["integration/receipt.json"]
+                  for field,n in [("inputReceiptSha256","admission.sanitized.json"),("resourceReceiptSha256","resource.sanitized.json"),("matrixReceiptSha256","semantic-matrix.json")]:
+                      need(s[field]==sha(raw[n]),"Cross-receipt digest mismatch")
+                  need(s["elapsedSeconds"]==r["elapsedSeconds"])
+                  need(r["parentPid"] in r["membershipByRole"]["launcher"])
+                  need(m["binaryIdentityBefore"]==m["binaryIdentityAfter"]==i["immutableApplicationFiles"])
+                  for case in m["cases"]:
+                      for res,sql in zip(case["consumerResults"],case["sqlComparisons"]):
+                          need((res["status"]=="APPLIED")==(sql["comparison"]=="CHANGED"))
+                          need((sql["beforeSha256"]==sql["afterSha256"])==(sql["comparison"]=="UNCHANGED"))
+                  need(m["rollback"]["beforeSha256"]==m["rollback"]["afterSha256"])
+              return parsed
+          def format_bytes(raw,c):
+              validate_files(raw,c)
+              app=COMMON+(LINUX if c["os"]=="Linux" else [])
+              total=sum(map(len,raw.values()));records=[];index=[]
+              def add(r):records.append(MARKER+json.dumps(r,separators=(",",":"),ensure_ascii=True))
+              add({"record":"begin","identity":c,"entries":13,"files":len(app),"rawBytes":total})
+              for n in NAMES:
+                  if n not in app:
+                      add({"record":"inapplicable","name":n,"reason":"Linux-only profile"})
+                      index.append({"name":n,"applicable":False,"reason":"Linux-only profile"})
+                      continue
+                  b=raw[n];data=base64.b64encode(b).decode();chunks=(len(data)+CHUNK-1)//CHUNK
+                  h={"record":"file","name":n,"length":len(b),"sha256":sha(b),"chunks":chunks}
+                  add(h)
+                  for j in range(chunks):add({"record":"chunk","name":n,"index":j,"data":data[j*CHUNK:(j+1)*CHUNK]})
+                  index.append({**{k:v for k,v in h.items() if k!="record"},"applicable":True})
+              add({"record":"end","identity":c,"entries":13,"files":len(app),"rawBytes":total})
+              log=("\n".join(records)+"\n").encode()
+              summary=("<pre>"+html.escape(json.dumps({"protocol":MARKER.strip(),"identity":c,"rawBytes":total,"encodedBytes":len(log),"files":index},indent=2))+"</pre>\n").encode()
+              # Include CRLF overhead as the cross-platform worst case.
+              need(len(log)+len(records)<=ENCODED);need(len(summary)<=SUMMARY)
+              return log,summary
+          def read_files(root,c):
+              identity(c);root=Path(root).absolute();need(root.is_dir() and not root.is_symlink())
+              def regular(path):
+                  cur=path
+                  while True:
+                      s=cur.lstat()
+                      need(not stat.S_ISLNK(s.st_mode) and not (getattr(s,"st_file_attributes",0)&1024))
+                      if cur==root:break
+                      need(root in cur.parents);cur=cur.parent
+                  a=path.stat();need(stat.S_ISREG(a.st_mode) and 0<a.st_size<=RAW)
+                  with path.open("rb") as f:b=f.read(RAW+1)
+                  z=path.stat();need(a.st_size==z.st_size==len(b) and a.st_mtime_ns==z.st_mtime_ns)
+                  return b
+              raw={}
+              for n in COMMON+(LINUX if c["os"]=="Linux" else []):
+                  relative="artifacts/"+n if n in COMMON or n==LINUX[0] else "artifacts/ce07-profile/"+c["profileRun"]+"/"+n
+                  raw[n]=regular(root/relative)
+              return raw
+          def main():
+              osn=os.environ["RUNNER_OS"];run=os.environ.get("CE07_PROFILE_RUN_ID","")
+              unit="contract-evolution-07-"+run[5:]+".service" if osn=="Linux" else ""
+              c=identity({"repository":os.environ["GITHUB_REPOSITORY"],"runId":os.environ["GITHUB_RUN_ID"],"attempt":os.environ["GITHUB_RUN_ATTEMPT"],"job":os.environ["GITHUB_JOB"],"sourceCommit":os.environ["GITHUB_SHA"],"os":osn,"rid":"linux-x64" if osn=="Linux" else "win-x64","profileRun":run,"unit":unit,"controlGroup":"/system.slice/"+unit if unit else ""})
+              workspace=os.environ["GITHUB_WORKSPACE"]
+              known="/home/runner/work/contract-evolution-lab/contract-evolution-lab" if osn=="Linux" else "D:/a/contract-evolution-lab/contract-evolution-lab"
+              need(workspace.replace("\\","/")==known)
+              raw=read_files(workspace,c)
+              sourcePins={"tools/integration.py":"71b8947e84dd6ae57688b869919fb3759362f9e637839bb320fb8a61041ad3c3","tools/semantic-profile.inputs.json":"a3bcbb964f51f285678ea3e86b0b57d5dc1e4a35c255bee8979fbf82dda337a1"}
+              for relative,digest in sourcePins.items():
+                  source=Path(workspace)/relative
+                  need(source.is_file() and not source.is_symlink() and source.stat().st_size<=1048576)
+                  need(sha(source.read_bytes())==digest)
+              log,summary=format_bytes(raw,c)
+              Path(os.environ["GITHUB_STEP_SUMMARY"]).write_bytes(summary)
+              sys.stdout.buffer.write(log)
+          if __name__=="__main__":
+              try:main()
+              except Exception:
+                  # Fixed diagnostic only: never echo private values, paths or a partial summary.
+                  print("Public proof contract rejected before emission",file=sys.stderr)
+                  sys.exit(1)
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
