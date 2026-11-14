@@ -15,12 +15,52 @@ def atomic(path,value):
 def require(condition,message):
     if not condition:raise ValueError(message)
 
+# Reviewed literal wire bytes and outcomes, independent of Policy.Validate.
+# Every frame has amount=2000, confirmed=true and one 9-byte synthetic identity.
+SEMANTIC_CASES = (
+    ("tuple-111", (1, 1, 1), "0a097475706c652d31313110011801200128d00f3801", ("APPLIED", "REPLAY"), 2000),
+    ("tuple-112", (1, 1, 2), "0a097475706c652d31313210011801200228d00f3801", ("DENIED", "DENIED"), None),
+    ("tuple-121", (1, 2, 1), "0a097475706c652d31323110011802200128d00f3801", ("DENIED", "DENIED"), None),
+    ("tuple-122", (1, 2, 2), "0a097475706c652d31323210011802200228d00f3801", ("DENIED", "DENIED"), None),
+    ("tuple-211", (2, 1, 1), "0a097475706c652d32313110021801200128d00f3801", ("DENIED", "DENIED"), None),
+    ("tuple-212", (2, 1, 2), "0a097475706c652d32313210021801200228d00f3801", ("DENIED", "DENIED"), None),
+    ("tuple-221", (2, 2, 1), "0a097475706c652d32323110021802200128d00f3801", ("DENIED", "DENIED"), None),
+    ("tuple-222", (2, 2, 2), "0a097475706c652d32323210021802200228d00f3801", ("DENIED", "APPLIED"), 2),
+)
+
+def json_digest(value):
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+def sql_snapshot(raw):
+    return {"state": raw["state"], "effects": sorted(raw["effects"], key=lambda r: r["operation_id"])}
+
+def inherited_membership(pid, expected, role):
+    try:
+        actual = Path("/proc") / str(pid) / "cgroup"
+        group = next(line[3:] for line in actual.read_text().splitlines() if line.startswith("0::"))
+    except (OSError, StopIteration) as error:
+        raise ValueError("Owned process membership unobserved: " + role) from error
+    require(group == expected, "Owned process escaped admitted cgroup: " + role)
+    return {"role": role, "pid": pid, "controlGroup": group}
+
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--apps',type=Path,required=True);p.add_argument('--fixtures',type=Path,required=True);p.add_argument('--out',type=Path,required=True);a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--apps',type=Path,required=True);p.add_argument('--fixtures',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--semantic-matrix',action='store_true');a=p.parse_args()
     out=a.out.resolve();out.mkdir(parents=True,exist_ok=False);apps=a.apps.resolve();repo=Path(__file__).resolve().parents[1];hostdir=out/'host'
     hostargs=['python3',linux(repo/'tools/pg_host.py'),'--fixtures',linux(a.fixtures),'--out',linux(hostdir)]
     if os.name=='nt':hostargs=['wsl','-d','Ubuntu-24.04','--']+hostargs
+    context=None;memberships=[];matrix_rows=[];matrix_rollback=None
+    if a.semantic_matrix:
+        require(platform.system() == "Linux", "Flagged profile requires admitted Linux scope")
+        context_path = Path(os.environ.get("CE07_PROFILE_CONTEXT", ""))
+        require(context_path.is_file() and context_path.stat().st_size <= 65536, "Admitted profile context required")
+        context = json.loads(context_path.read_text())
+        require(context.get("projectId") == "07" and context.get("profile") == "contract-evolution-07-semantic-matrix-v1", "Wrong project profile")
+        memberships.append(inherited_membership(os.getpid(), context["controlGroup"], "integration"))
     hostlog=(out/'host-console.log').open('wb');host=subprocess.Popen(hostargs,stdout=hostlog,stderr=subprocess.STDOUT)
+    if context:
+        try: memberships.append(inherited_membership(host.pid, context["controlGroup"], "pg-supervisor"))
+        except Exception:
+            host.terminate();host.wait(timeout=10);hostlog.close();raise
     hostile=out/'unrelated-cwd';hostile.mkdir();(hostile/'appsettings.json').write_text('invalid-json-must-not-be-read')
     children=[];logs=[];checks=[];history=[];expected={};sequence=0;config=None;guard_active=False;guard_proof=None;environment=os.environ.copy();environment['DOTNET_PROCESSOR_COUNT']='2';start=time.monotonic()
     def wait(path,seconds=90):
@@ -45,7 +85,20 @@ def main():
         return files
     binary_identity=None
     def invoke(role,v,*args,codes=(0,)):
-        r=subprocess.run([str(app(role,v)),*map(str,args)],cwd=app(role,v).parent,capture_output=True,text=True,env=environment,timeout=20)
+        command=[str(app(role,v)),*map(str,args)]
+        if context:
+            process=subprocess.Popen(command,cwd=app(role,v).parent,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=environment)
+            try:
+                memberships.append(inherited_membership(process.pid, context["controlGroup"], role + "-v" + str(v)))
+                stdout,stderr=process.communicate(timeout=20)
+            except BaseException:
+                if process.poll() is None: process.kill()
+                process.wait(timeout=10)
+                raise
+            require(len(stdout.encode("utf-8")) <= 4096 and len(stderr.encode("utf-8")) <= 4096, "Bounded application response")
+            r=subprocess.CompletedProcess(command,process.returncode,stdout,stderr)
+        else:
+            r=subprocess.run(command,cwd=app(role,v).parent,capture_output=True,text=True,env=environment,timeout=20)
         try:result=json.loads(r.stdout)
         except json.JSONDecodeError:raise ValueError('App did not return one JSON response: '+role+' '+str(r.returncode))
         require(r.returncode in codes,'Unexpected process exit '+json.dumps(result))
@@ -53,8 +106,8 @@ def main():
     def control(action):
         nonlocal sequence
         sequence+=1;identity='c'+str(sequence);atomic(hostdir/'control.json',{'id':identity,'action':action});path=hostdir/(identity+'.json');wait(path,45);return json.loads(path.read_text())
-    def oracle():
-        raw=control('oracle');state=raw['state'];rows=raw['effects'];actual={}
+    def oracle(raw=None):
+        raw=control('oracle') if raw is None else raw;state=raw['state'];rows=raw['effects'];actual={}
         for row in rows:
             ticks=row['amount_ticks'] if 'amount_ticks' in row else row['amount_scaled']//1000
             require(ticks>0 and ('amount_scaled' not in row or row['amount_scaled'] is None or row['amount_scaled']==ticks*1000),'Independent unit invariant')
@@ -82,6 +135,7 @@ def main():
             env['EVOLUTION_LAB_PAUSE']=hook[0];env['EVOLUTION_LAB_HOOK_DIR']=str(hook[1])
         log=(out/('server-'+str(len(children))+'.log')).open('wb');logs.append(log)
         process=subprocess.Popen([str(app('consumer',v)),'serve',str(port)],cwd=hostile,env=env,stdout=log,stderr=subprocess.STDOUT);children.append(process)
+        if context: memberships.append(inherited_membership(process.pid, context["controlGroup"], "consumer-server-v" + str(v)))
         until=time.monotonic()+20
         while time.monotonic()<until:
             if process.poll() is not None:raise ValueError('Owned consumer failed at readiness')
@@ -109,6 +163,48 @@ def main():
         file=encode(v,case,identity,ticks);result=resolve_new(v,url,file) if status=='APPLIED' else send(v,url,file);require(result['status'] in ['APPLIED','REPLAY'] if status=='APPLIED' else result['status']==status,(identity,result))
         if status=='APPLIED':expected[identity]=ticks
         return file,result
+    def semantic_matrix(oldurl,newurl):
+        before_bytes=binary_snapshot()
+        for identity,semantic_tuple,hex_frame,statuses,normalized in SEMANTIC_CASES:
+            frame=bytes.fromhex(hex_frame)
+            require(len(frame) <= 64, "Literal frame bound")
+            path=out/(identity+".bin")
+            with path.open("xb") as file: file.write(frame)
+            record={"id":identity,"tuple":list(semantic_tuple),"amount":2000,"confirmed":True,"frameSha256":hashlib.sha256(frame).hexdigest(),"parsers":[],"consumerResults":[],"sqlComparisons":[]}
+            matrix_rows.append(record)
+            for producer in (1,2):
+                parsed=invoke("producer",producer,"inspect",path)
+                projection={key:parsed[key] for key in ("id","semantic","capability","unit","amount","confirmed")}
+                record["parsers"].append({"producerVersion":producer,"exit":0,**projection})
+                require(projection == {"id":identity,"semantic":semantic_tuple[0],"capability":semantic_tuple[1],"unit":semantic_tuple[2],"amount":"2000","confirmed":True if producer == 2 else None}, "Actual parser projection differs")
+            for consumer,url,wanted in zip((1,2),(oldurl,newurl),statuses):
+                before=sql_snapshot(oracle())
+                reply=send(2,url,path)  # one request, no semantic-matrix UNKNOWN resolution/retry
+                record["consumerResults"].append({"consumerVersion":consumer,"exit":history[-1]["exit"],**reply})
+                after_raw=control("oracle");after=sql_snapshot(after_raw)
+                history.append({"semanticSqlSnapshot":{"identity":identity,"consumer":consumer,"before":before,"after":after}})
+                record["sqlComparisons"].append({"consumerVersion":consumer,"comparison":"UNCHANGED" if before == after else "CHANGED","beforeSha256":json_digest(before),"afterSha256":json_digest(after),"stageBefore":before["state"]["stage"],"stageAfter":after["state"]["stage"],"effectsBefore":len(before["effects"]),"effectsAfter":len(after["effects"]),"totalBefore":before["state"]["total"],"totalAfter":after["state"]["total"]})
+                require(reply["status"] == wanted and reply["id"] == identity, "Literal semantic outcome differs")
+                if wanted == "APPLIED":
+                    expected[identity]=normalized
+                else:
+                    require(before == after, "Denied/replayed semantic request mutated full SQL history")
+                oracle(after_raw)
+                require(hashlib.sha256(path.read_bytes()).hexdigest() == record["frameSha256"], "Semantic request bytes changed")
+        statuses=[r["status"] for case in matrix_rows for r in case["consumerResults"]]
+        require((statuses.count("APPLIED"),statuses.count("REPLAY"),statuses.count("DENIED")) == (2,1,13), "Exact matrix outcome counts")
+        require(binary_snapshot() == before_bytes == binary_identity, "Matrix changed immutable input")
+        mark("literal-mixed-semantic-tuple-matrix-parser-vs-acceptance")
+
+    def save_matrix(status):
+        if not context: return
+        keys=("projectId","runId","harnessCommit","harnessSha256","profileSha256","runtimeCommit","runtimeTag","archiveSha256")
+        value={"schema":"contract-evolution/semantic-matrix/v1","status":status,**{k:context[k] for k in keys},"cases":matrix_rows,"caseCounts":{"frames":len(matrix_rows),"parserObservations":sum(len(r["parsers"]) for r in matrix_rows),"rpcCalls":sum(len(r["consumerResults"]) for r in matrix_rows)},"binaryIdentityBefore":binary_identity,"binaryIdentityAfter":binary_snapshot(),"rollback":matrix_rollback}
+        data=json.dumps(value,indent=2)+"\n"
+        require(len(data.encode("utf-8")) <= 262144, "Sanitized matrix receipt bound")
+        with (out/"semantic-matrix.json").open("x",encoding="utf-8") as file: file.write(data)
+        with (out/"membership.private.json").open("x",encoding="utf-8") as file: json.dump(memberships,file)
+
     try:
         binary_identity=binary_snapshot()
         wait(hostdir/'ready.json');config=json.loads((hostdir/'connection.private.json').read_text());environment['EVOLUTION_LAB_DB']=config['connection']
@@ -123,6 +219,7 @@ def main():
             for consumer,url in [(1,oldurl),(2,newurl)]:
                 accepted(producer,url,'additive','matrix-'+str(producer)+str(consumer),producer*10+consumer)
         oracle();mark('actual-four-combination-grpc-matrix-additive-safe')
+        if a.semantic_matrix: semantic_matrix(oldurl,newurl)
         for v in [1,2]:
             for case in ['missing','unknown']:
                 file=encode(v,case,'deny-'+case+str(v),1)
@@ -191,15 +288,27 @@ def main():
         oracle();mark('cross-version-durable-identity-receipt-and-conflict')
         stop(old)
         require(invoke('consumer',2,'contract','ack-old-writers-stopped')['status']=='CONTRACT_COMMITTED','Explicit irreversible contract')
-        require(invoke('consumer',2,'rollback','ack-new-writers-stopped')['status']=='ROLLBACK_BLOCKED','Post-contract rollback blocked')
+        rollback_before=sql_snapshot(oracle()) if context else None
+        rollback_reply=invoke('consumer',2,'rollback','ack-new-writers-stopped')
+        require(rollback_reply['status']=='ROLLBACK_BLOCKED','Post-contract rollback blocked')
+        if context:
+            rollback_after=sql_snapshot(oracle())
+            matrix_rollback={"exit":0,"status":rollback_reply["status"],"stageBefore":rollback_before["state"]["stage"],"stageAfter":rollback_after["state"]["stage"],"sqlUnchanged":rollback_before == rollback_after,"beforeSha256":json_digest(rollback_before),"afterSha256":json_digest(rollback_after)}
+            history.append({"rollbackSqlSnapshots":{"before":rollback_before,"after":rollback_after}})
+            require(rollback_before == rollback_after and rollback_after["state"]["stage"] == 2, "Blocked rollback changed SQL/schema state")
         old,oldurl=server(1);require(send(1,oldurl,replay_file)['status']=='SCHEMA_UNSUPPORTED','Actual old binary against contracted schema')
         require(send(2,newurl,replay_file)['status']=='REPLAY','New binary preserves old receipt after contract')
         oracle();mark('irreversible-contract-old-binary-stops-without-effects')
         control('restart');require(send(2,newurl,replay_file)['status']=='REPLAY','Ordinary PG restart preserves identity')
         final=oracle();mark('ordinary-pg-restart-retains-effect-history')
         receipt={'status':'PASS','clientOs':platform.system(),'caseCount':len(checks),'cases':checks,'effectCount':len(expected),'total':sum(expected.values()),'finalStage':final['state']['stage'],'legacyInputGuard':guard_proof,'immutableApplicationFiles':binary_identity,'normalUnknownResolutionAttempts':sum('normalUnknownResolution' in event for event in history),'durationSeconds':round(time.monotonic()-start,3)}
+        require((len(checks),len(expected),sum(expected.values()),final["state"]["stage"]) == ((15,52,3556,2) if a.semantic_matrix else (14,50,1554,2)), "Exact profile final conservation")
+        save_matrix("PASS")
         (out/'history.json').write_text(json.dumps(history,indent=2)+'\n');(out/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps(receipt))
     except Exception as error:
+        if context and not (out/"semantic-matrix.json").exists():
+            try: save_matrix("INCOMPLETE_NOT_A_PASS")
+            except Exception: pass  # retain original diagnostic, never convert failure to success
         if guard_active:
             try:guard_proof=control('legacy-input-guard-evidence')['legacyInputGuard'];history.append({'legacyInputGuardAtFailure':guard_proof})
             except Exception:pass

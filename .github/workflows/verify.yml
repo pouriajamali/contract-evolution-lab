@@ -57,6 +57,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
+      - name: Record isolated legacy source job budget
+        if: runner.os == 'Linux'
+        shell: bash
+        run: echo "CE07_JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
@@ -101,17 +105,32 @@ jobs:
           if ($package.Count -ne 1) { throw 'Exactly one package root required' }
           python tools/check_package.py --package $package[0].FullName --commit '${{ github.sha }}' --out artifacts/package-checks.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Real local Linux gRPC and migration fault matrix
+      - name: One frozen preview.2 Linux semantic and migration profile
         if: runner.os == 'Linux'
         shell: pwsh
         run: |
-          python tools/fetch_services.py --out artifacts/upstream
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python tools/prepare_linux.py --archives artifacts/upstream --out artifacts/services
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $package = @(Get-ChildItem 'artifacts/extracted with spaces' -Directory)
-          python tools/integration.py --fixtures artifacts/services --apps (Join-Path $package[0].FullName apps) --out artifacts/integration
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $runId = 'ce07-' + [guid]::NewGuid().ToString('N')
+          $root = Join-Path $env:GITHUB_WORKSPACE 'artifacts/ce07-profile'
+          $out = Join-Path $root $runId
+          python tools/run_semantic_profile.py --ci --inputs (Join-Path $root inputs) --out $out --run-id $runId
+          if ($LASTEXITCODE -ne 0) { throw 'Incomplete fixed profile; retain private diagnostics' }
+          # Retain the existing bounded case-summary proof, never raw history.
+          $proof = Join-Path $out 'private/integration/receipt.json'
+          if ((Get-Item -LiteralPath $proof).Length -gt 262144) { throw 'Legacy summary exceeds bound' }
+          $receipt = Get-Content -Raw -LiteralPath $proof | ConvertFrom-Json
+          $keys = @('status','clientOs','caseCount','cases','effectCount','total','finalStage','legacyInputGuard','immutableApplicationFiles','normalUnknownResolutionAttempts','durationSeconds')
+          if (@(Compare-Object ($receipt.PSObject.Properties.Name | Sort-Object) ($keys | Sort-Object)).Count -ne 0) { throw 'Unexpected legacy summary fields' }
+          if ($receipt.status -ne 'PASS' -or $receipt.caseCount -ne 15 -or $receipt.effectCount -ne 52 -or $receipt.total -ne 3556 -or $receipt.finalStage -ne 2) { throw 'Exact profile summary mismatch' }
+          New-Item -ItemType Directory -Path artifacts/integration -ErrorAction Stop | Out-Null
+          $receipt | ConvertTo-Json -Depth 16 | Set-Content -Encoding utf8 -LiteralPath artifacts/integration/receipt.json
+          $public = @('admission.sanitized.json','resource.sanitized.json','semantic-matrix.json','receipt.sanitized.json')
+          $bytes = 0
+          foreach ($name in $public) {
+            $file = Get-Item -LiteralPath (Join-Path $out $name)
+            if ($file.Length -gt 262144) { throw 'Sanitized receipt exceeds bound' }
+            $bytes += $file.Length
+          }
+          if ($bytes -gt 1048576) { throw 'Total sanitized proof cap' }
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
@@ -133,6 +152,10 @@ jobs:
             artifacts/build/toolchain-check.json
             artifacts/build/contract-checks/receipt.json
             artifacts/integration/receipt.json
+            artifacts/ce07-profile/ce07-*/admission.sanitized.json
+            artifacts/ce07-profile/ce07-*/resource.sanitized.json
+            artifacts/ce07-profile/ce07-*/semantic-matrix.json
+            artifacts/ce07-profile/ce07-*/receipt.sanitized.json
           if-no-files-found: error
   aggregate:
     if: startsWith(github.ref, 'refs/tags/v') || inputs.verify_release == true

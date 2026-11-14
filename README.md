@@ -20,6 +20,12 @@ Read the [architecture case study](docs/ARCHITECTURE-CASE-STUDY.md) for the deci
 | Remove the legacy database column | Old binary returns SCHEMA_UNSUPPORTED; rollback is explicitly blocked |
 | Keep an old writer independent of the new column | Test-only pre-fill database guard observes null scaled input from v1 and the unchanged original trigger supplies the stored scaled value; app/core/contract hashes stay fixed across stages |
 
+## Source-only semantic matrix
+
+The newer source harness adds an opt-in [mixed semantic-tuple matrix](docs/SEMANTIC-MATRIX.md) over unchanged signed preview.2 Linux binaries. It separates parser success, semantic denial, full SQL/history conservation and logical blocked rollback. The complete flagged profile expects15 cases/52 effects/3556 ticks; no-flag remains14/50/1554. This extension is not in the existing preview.2 download. Execution requires actual file-bound input/profile/kernel admission; source inspection alone is no runtime PASS or new release.
+
+Use the fixed project07 launcher and admitted identities/limits in the guide. Do not duplicate the baseline run or rebuild an old matrix input. Source CI retains the isolated SDK10.0.403/runtime10.0.14 reproduction boundary; its non-promoted packages are distinct from frozen runtime inputs.
+
 ## Connection ownership correction
 
 This version closes a newly allocated connection if opening fails or is cancelled. [Read the ownership decision, executable counterexamples and evidence limits](docs/CONNECTION-OWNERSHIP.md).

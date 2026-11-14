@@ -1,0 +1,229 @@
+{
+  "schema": "contract-evolution/fixed-profile/v1",
+  "projectId": "07",
+  "profile": "contract-evolution-07-semantic-matrix-v1",
+  "executionReceiptSha256": "45c67dcd400c6444b8b353b71e922e2e69ab7afa9b5ee1297ae73ec54e21081f",
+  "baseline": "ce9c2916e591dbe647e50d0990c4af4ba4a2ae88",
+  "tree": "c78e6d4cb1d3df6524ee95c082e4bdbda6fbf8cb",
+  "branch": "codex/wave3-07-semantic-matrix-20261114",
+  "localCheckout": "/mnt/e/Codex WorkSpace/Git Projects/contract-evolution-lab/work/wave3-m1-20261114/repo",
+  "localOutputRoot": "/mnt/e/Codex WorkSpace/Git Projects/contract-evolution-lab/outputs/wave3-m1-20261114",
+  "canonicalLease": "/mnt/e/Codex WorkSpace/Git Projects/portfolio-management/development-management-20261110/wave2-state/LOCAL-FIXTURE-LEASE.json",
+  "leaseProtocol": "/mnt/e/Codex WorkSpace/Git Projects/portfolio-management/development-management-20261110/wave2-state/LEASE-PROTOCOL.json",
+  "fingerprint": "SHA256:AgU5bZlJSjUu0KsWMmVEEr+BfXpcMVNroTA33bHcQdU",
+  "releaseTag": "v0.1.0-preview.2",
+  "releaseBase": "https://github.com/pouriajamali/contract-evolution-lab/releases/download/v0.1.0-preview.2/",
+  "releaseAssets": [
+    {
+      "name": "contract-evolution-lab-v0.1.0-preview.2-linux-x64.tar.gz",
+      "bytes": 169709480,
+      "sha256": "41d0eb07766a45ec0c3e4e93e092ec63b73a2478b0c89e8c79c1773eee0035cd"
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 358,
+      "sha256": "46efa68a387ebc3944c452fe5644ab0410b916545aa7c9a33b67fe7502a4ea44"
+    },
+    {
+      "name": "SHA256SUMS.txt.sig",
+      "bytes": 294,
+      "sha256": "87f968c64ab9554602190250f5df07c9277692fbd89930c2a6969786484ea673"
+    },
+    {
+      "name": "SIGNING-PUBLIC-KEY.pub",
+      "bytes": 112,
+      "sha256": "a59fbecc53a0b3109212b70a3a51247dbd3529512d189ac2462a27a057dad671"
+    }
+  ],
+  "manifestSha256": "865f9a0db327ba546b760781aeec693f5e2bbfc528e5d6f9a49d041a074ec740",
+  "appMembers": [
+    {
+      "path": "apps/consumer-v1/Contract.V1.dll",
+      "bytes": 18432,
+      "sha256": "5e5eb14011e29acc8d774e08109c45878fa372578776c1d8694fce23c2f5265b"
+    },
+    {
+      "path": "apps/consumer-v1/Core.dll",
+      "bytes": 39936,
+      "sha256": "3da3729ed7b4e887b49bedc83b9e8a0b0f18262c32969835ea4d600d57bb73e7"
+    },
+    {
+      "path": "apps/consumer-v1/consumer-v1",
+      "bytes": 78192,
+      "sha256": "2254e8cacf419730acdb4b16f03a4932ea55b479ddf7d4492173d539a12550f1"
+    },
+    {
+      "path": "apps/consumer-v1/consumer-v1.dll",
+      "bytes": 17920,
+      "sha256": "ca15b018ed3906978ff6e79780c0a6ddb603e42d5f7eea583f426b12b6419f7d"
+    },
+    {
+      "path": "apps/consumer-v2/Contract.V2.dll",
+      "bytes": 20480,
+      "sha256": "278f1c3f2d1e334b8cedab9aee0d04cd29b23a96c1d22fb7339d8a673a81c718"
+    },
+    {
+      "path": "apps/consumer-v2/Core.dll",
+      "bytes": 39936,
+      "sha256": "3da3729ed7b4e887b49bedc83b9e8a0b0f18262c32969835ea4d600d57bb73e7"
+    },
+    {
+      "path": "apps/consumer-v2/consumer-v2",
+      "bytes": 78192,
+      "sha256": "5742948601330fbcb5c6aefbdddbddd94076d2f8a32805b5efddbb5fde4313a4"
+    },
+    {
+      "path": "apps/consumer-v2/consumer-v2.dll",
+      "bytes": 17920,
+      "sha256": "f28528299c7741063bc4ecd1fd537d5ab1f96f4e385aa14740f0397183d5ea73"
+    },
+    {
+      "path": "apps/producer-v1/Contract.V1.dll",
+      "bytes": 18432,
+      "sha256": "5e5eb14011e29acc8d774e08109c45878fa372578776c1d8694fce23c2f5265b"
+    },
+    {
+      "path": "apps/producer-v1/Core.dll",
+      "bytes": 39936,
+      "sha256": "3da3729ed7b4e887b49bedc83b9e8a0b0f18262c32969835ea4d600d57bb73e7"
+    },
+    {
+      "path": "apps/producer-v1/producer-v1",
+      "bytes": 78192,
+      "sha256": "e0c96665e30ec43c9a0f2cb623d0ca52ef5be0a146d93d1c32e8ebc6d37fedea"
+    },
+    {
+      "path": "apps/producer-v1/producer-v1.dll",
+      "bytes": 19456,
+      "sha256": "497024f5c6afbf2fa02a5ae0bd3668f2f206199f67fefae7fe2fd89541547e16"
+    },
+    {
+      "path": "apps/producer-v2/Contract.V2.dll",
+      "bytes": 20480,
+      "sha256": "278f1c3f2d1e334b8cedab9aee0d04cd29b23a96c1d22fb7339d8a673a81c718"
+    },
+    {
+      "path": "apps/producer-v2/Core.dll",
+      "bytes": 39936,
+      "sha256": "3da3729ed7b4e887b49bedc83b9e8a0b0f18262c32969835ea4d600d57bb73e7"
+    },
+    {
+      "path": "apps/producer-v2/producer-v2",
+      "bytes": 78192,
+      "sha256": "e1a2c257ee1c16b8b8821c085e145a4d959fd9b195c1236ac6b4632d6bb05617"
+    },
+    {
+      "path": "apps/producer-v2/producer-v2.dll",
+      "bytes": 19456,
+      "sha256": "93e02179a25e90d3622b6e998dda71e70d5bc9aa9351dd46c783c3d179e24659"
+    }
+  ],
+  "trustedTools": [
+    {
+      "path": "tools/verify_downloads.py",
+      "bytes": 4157,
+      "sha256": "53f5df7d21c1147f7eb4f8f5c4e4292d206ae09eba91939d7baeddc67aec66a4"
+    },
+    {
+      "path": "tools/extract_package.py",
+      "bytes": 1682,
+      "sha256": "f3fd0a013676f47c9051e085e49f7d6d4204bf6bf805a4b741f1209f537571c2"
+    },
+    {
+      "path": "tools/pg_host.py",
+      "bytes": 7964,
+      "sha256": "934dea41dec081b18d8310bb55016f7d42b4eb8620e7f6d8aa6dea62f4f18294"
+    },
+    {
+      "path": "tools/fetch_services.py",
+      "bytes": 1536,
+      "sha256": "03fd610479cdaed3b3bb00a0ddd7c06542128cb3b2ed2775eeabeaeefc54290c"
+    },
+    {
+      "path": "tools/prepare_linux.py",
+      "bytes": 1890,
+      "sha256": "37d4a488f97a0f1f12c5c98e24634c1e6efc95dcf1bca17667e995392ad2a584"
+    },
+    {
+      "path": "tools/upstream.lock.json",
+      "bytes": 2369,
+      "sha256": "7a299843216a4b2d9aeaee464bea5dce10bc343600e047ade22f0c2dbacf7ab2"
+    }
+  ],
+  "pg": [
+    {
+      "name": "postgresql-18_18.6-1.pgdg24.04+2_amd64.deb",
+      "url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-18/postgresql-18_18.6-1.pgdg24.04+2_amd64.deb",
+      "bytes": 7576708,
+      "sha256": "c0773357df8769abb70e92722196d9b53422d71c0f29a4f39c834b94276cfa3d",
+      "digestSource": "https://apt.postgresql.org/pub/repos/apt/dists/noble-pgdg/main/binary-amd64/Packages.gz"
+    },
+    {
+      "name": "postgresql-client-18_18.6-1.pgdg24.04+2_amd64.deb",
+      "url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-18/postgresql-client-18_18.6-1.pgdg24.04+2_amd64.deb",
+      "bytes": 2114236,
+      "sha256": "b9d10d99a73bf7aa375be2fe36626c40499cfdf553d0ad174674a88a1b256b43",
+      "digestSource": "https://apt.postgresql.org/pub/repos/apt/dists/noble-pgdg/main/binary-amd64/Packages.gz"
+    },
+    {
+      "name": "libpq5_18.6-1.pgdg24.04+2_amd64.deb",
+      "url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-18/libpq5_18.6-1.pgdg24.04+2_amd64.deb",
+      "bytes": 264072,
+      "sha256": "b487c5ed2ceb9244c6a9d6ae65818ed6707c3c44a2e14488394ae4194c52c53b",
+      "digestSource": "https://apt.postgresql.org/pub/repos/apt/dists/noble-pgdg/main/binary-amd64/Packages.gz"
+    },
+    {
+      "name": "libnuma1_2.0.18-1ubuntu0.24.04.1_amd64.deb",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/n/numactl/libnuma1_2.0.18-1ubuntu0.24.04.1_amd64.deb",
+      "sha256": "f333b8edf6f0b705c19f2a67008194df66f7aab0fa2350dc98510569a033ff29",
+      "bytes": 23396,
+      "digestSource": "Installed Ubuntu24.04 apt metadata; apt-cache show libnuma1"
+    },
+    {
+      "name": "liburing2_2.5-1build1_amd64.deb",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libu/liburing/liburing2_2.5-1build1_amd64.deb",
+      "sha256": "c2aef62accee92a06263c3ad4ef46132c13e409b54296c44792a20491830a7b0",
+      "bytes": 21092,
+      "digestSource": "Installed Ubuntu24.04 apt metadata; apt-cache show liburing2"
+    }
+  ],
+  "caps": {
+    "cpuQuota": 200,
+    "memoryMax": 4294967296,
+    "memorySwapMax": 0,
+    "tasksMax": 128,
+    "runtimeMaxSec": 900,
+    "timeoutStopSec": 15
+  },
+  "bounds": {
+    "inputBytes": 65536,
+    "replyBytes": 4096,
+    "receiptBytes": 262144,
+    "publicTotalBytes": 1048576,
+    "workspaceBytes": 2147483648,
+    "logsBytes": 268435456,
+    "transferSeconds": 90,
+    "downloadSeconds": 180,
+    "jobSeconds": 1200,
+    "reserveSeconds": 60
+  },
+  "publicFiles": [
+    "admission.sanitized.json",
+    "resource.sanitized.json",
+    "semantic-matrix.json",
+    "receipt.sanitized.json"
+  ],
+  "runtimeBoundary": "ISOLATED_LEGACY_REPRODUCTION_ONLY; frozen self-contained preview.2, no SDK/restore/build or net11 in this profile",
+  "localInputRoot": "/mnt/e/Codex WorkSpace/Git Projects/contract-evolution-lab/work/wave3-m1-20261114/inputs",
+  "sharedInputBinding": {
+    "path": "/mnt/e/Codex WorkSpace/Git Projects/portfolio-management/development-management-20261110/wave3-state/SHARED-INPUT-BINDINGS-20261114.json",
+    "sha256": "e3edef62643e25569e70969e1aebd763c9bdb42b6f8556189b96b91b8eb6c4ed"
+  },
+  "canonicalProtocolSha256": "9ac8cab8ff260c1fc52976056ad455c1fdafcebd9be2ac2258f0e611faac8ed2",
+  "localReleaseRoot": "/mnt/e/Codex WorkSpace/Git Projects/portfolio-management/legacy-portfolio-new-tools/source-publication-20261110/actual-provenance-downloads/contract-evolution-lab",
+  "localPgArchiveRoot": "/mnt/e/Codex WorkSpace/Git Projects/fenced-shard-ownership-lab/state/acquisition-raw-cache-01/archives",
+  "priorPublicReceipt": {
+    "path": "/mnt/e/Codex WorkSpace/Git Projects/portfolio-management/legacy-portfolio-new-tools/source-publication-20261110/TWO-PUBLIC-PROVENANCE-VERIFIED.json",
+    "sha256": "ad23984dfacccb8c127dc11b4cb1e9945ce4911100927e71d4fbdd77dbc87717"
+  }
+}

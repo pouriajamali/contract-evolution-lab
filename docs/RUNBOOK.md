@@ -13,3 +13,13 @@ Stop old writers before contract. Incomplete backfill returns INVARIANT_NOT_READ
 Profile bounds: 15 minutes, 256 MiB log cap, PostgreSQL 64 MiB shared buffers / 24 connections / 256 MiB max_wal_size; these are configured limits, not guarantees on total process RSS or peak disk. Request/database deadlines are finite. Existing Linux access, libraries, local disk/compute and downloads remain prerequisites.
 
 Review slices: (a) wire/presence and semantic denial, (b) durable identity and commit uncertainty, (c) schema/backfill and old binaries, (d) notices/provenance/package/native execution. Run actual code and inspect separate receipts; static source, CI and runtime evidence are distinct.
+
+## Source-only mixed semantic matrix
+
+Read [the exact matrix and admission guide](SEMANTIC-MATRIX.md). The preview.2 baseline above remains historical14/50/1554. One complete flagged source-harness invocation expects15/52/3556 at stage2, retaining all original assertions; source inspection or pending admission is not a runtime PASS.
+
+The fixed project07 launcher requires manager-reviewed source identities, known-key/cache binding, completed parent/child kernel proof and canonical lane admission before local targets. Do not use wrapper06 or a similar-name cache. Source-CI SDK10.0.403/runtime10.0.14 is an isolated legacy reproduction exception, not a patched/current-runtime claim. Rebuilt CI bytes are non-promoted and cannot replace frozen preview.2.
+
+Eight literal frames parse under both producers and yield2 APPLIED/1 REPLAY/13 DENIED on actual consumers. Every denial/replay requires identical full SQL state/history. Matrix UNKNOWN never retries. Post-contract exit0 plus ROLLBACK_BLOCKED means blocked, with unchanged SQL at stage2; it never means rollback succeeded.
+
+Linux CI replaces its existing integration invocation with the flagged profile; it does not execute both. Keep the original bounded case-summary proof and all phase/byte checks. Only four explicitly allowlisted sanitized profile receipts are new uploads. Private connection/raw histories/PG data/logs stay private. A timeout or cleanup kill is incomplete, never semantic/clean-stop success. Missing effective caps or ambiguous lease is HOLD; no global changes, source reset, unrelated process kill or destructive cleanup.
